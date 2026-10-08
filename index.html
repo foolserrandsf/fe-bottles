@@ -328,7 +328,7 @@ function render(){
   const p = parseQuery(S.q);
   const all = S.cat.bottles;
   const shown = all.filter(b =>
-    (!S.color || b.color===S.color || (S.color==='Orange' && b.skin)) &&
+    (p.color || !S.color || b.color===S.color || (S.color==='Orange' && b.skin)) &&
     (!S.onlyNew || b.isNew) && (!S.onlyStar || b.chilled || b.skin) && (!S.onlyRed || b.reductive) && (!S.only86 || isOut(b)) && matches(b,p));
   const outN = all.filter(isOut).length;
   $('meta').textContent = `${S.cat.edition} · ${all.filter(b=>b.guestList).length} on the list` + (outN?` · ${outN} 86'd`:'');
@@ -338,8 +338,10 @@ function render(){
   st.textContent = filtering ? `${shown.length} of ${all.length} bottles` : '';
   list.textContent='';
   if (!shown.length){
+    const on = [(!p.color && S.color) || '', S.onlyNew?'New':'', S.onlyStar?'** Chilled / skin':'', S.onlyRed?'Slightly reductive':'', S.only86?"86'd":''].filter(Boolean);
     list.append(el('div',{class:'empty'}, el('strong',{text: S.q ? `No bottles match “${S.q}”.` : 'No bottles match these filters.'}),
-      'Try a grape, a place or a style, like “aligoté”, “Mosel” or “chillable red”. Tap All to clear the colour filter.'));
+      on.length ? `The ${on.join(', ')} filter is also on, which hides everything else. ` : 'Try a grape, a place or a style, like “aligoté”, “Mosel” or “chillable red”. ',
+      on.length ? el('button',{class:'btn back',style:'margin-top:12px;display:block',onclick:()=>{ S.color=null; S.onlyNew=S.onlyStar=S.onlyRed=S.only86=false; render(); }},'Clear filters') : null));
     return;
   }
   if (p.terms.length){
