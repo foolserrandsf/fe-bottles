@@ -210,7 +210,7 @@ section{margin-top:30px}
       <h1>Fool's Errand Bottles</h1>
     </div>
     <div class="search">
-      <input id="q" type="search" autocomplete="off" placeholder="Try “salty white” or “chillable red under 70”" aria-label="Search bottles">
+      <input id="q" type="search" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="search" inputmode="search" placeholder="Try “salty white” or “chillable red under 70”" aria-label="Search bottles">
       <button class="clear" id="clear" aria-label="Clear search" hidden>×</button>
     </div>
     <div class="chips" id="chips" role="toolbar" aria-label="Filters"></div>
@@ -499,7 +499,9 @@ async function set86(b, out, btn){
 
 // search + clear
 let qTimer=null;
-$('q').addEventListener('input', e => { $('clear').hidden = !e.target.value; clearTimeout(qTimer); qTimer = setTimeout(()=>{ S.q = e.target.value.trim(); S.open = null; render(); window.scrollTo(0,0); }, 120); });
+function onQuery(){ const v=$('q').value; $('clear').hidden = !v; clearTimeout(qTimer); qTimer = setTimeout(()=>{ if (v.trim()===S.q) return; S.q = v.trim(); S.open = null; render(); window.scrollTo(0,0); }, 150); }
+['input','keyup','change','search','compositionend','paste'].forEach(ev => $('q').addEventListener(ev, ()=>setTimeout(onQuery,0)));
+$('q').addEventListener('keydown', e => { if (e.key==='Enter'){ e.preventDefault(); onQuery(); $('q').blur(); } });
 $('clear').addEventListener('click', () => { $('q').value=''; $('clear').hidden=true; S.q=''; render(); $('q').focus(); });
 renderChips();
 
