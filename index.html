@@ -542,6 +542,19 @@ setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp) sp.remove();
 (()=>{ const c=load('fe.cache'); if(c){ try{ const o=JSON.parse(c); S.photos=new Set(o.photos||[]); apply(o.cat); }catch(e){} } })();
 renderWho();
 loadAll();
+// keep home-screen copies up to date: if a newer version is published, load it
+const APP_V = '202610081104';
+async function checkVersion(){
+  try{
+    const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
+    if (!r.ok) return;
+    const v = (await r.json()).v;
+    if (v && v !== APP_V && !location.search.includes('v='+v)) location.replace(location.pathname + '?v=' + v);
+  }catch(e){}
+}
+checkVersion();
+document.addEventListener('visibilitychange',()=>{ if (document.visibilityState==='visible') checkVersion(); });
+
 setInterval(()=>{ if (document.visibilityState==='visible') refreshStock(); }, 30000);
 document.addEventListener('visibilitychange',()=>{ if (document.visibilityState==='visible') loadAll(); });
 })();
