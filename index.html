@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FE Bottles</title>
+<meta name="description" content="Fool's Errand staff bottle list">
+<meta name="robots" content="noindex,nofollow">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="FE Bottles">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#eef0ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121618" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,600;1,700&family=IBM+Plex+Sans:wght@400;500;600&family=Caveat:wght@600&display=swap">
+<style>
+/* Layout: one phone-first column — sticky search + filter chips, then the list grouped by menu section like the printed guest list; tap a bottle to open its booklet page in place. */
+:root{
+  --bg:#eef0ee; --surface:#ffffff; --ink:#1b2023; --muted:#5a6469; --line:#d9dedc;
+  --accent:#2b5c50; --accent-ink:#ffffff; --accent-soft:#e1ece8;
+  --slate:#262d30; --chalk:#f1f1ec;
+  --danger:#b42318; --danger-soft:#fbe9e7; --new:#8a5300; --new-soft:#fbefd9;
+  --f-name:"Lora",Georgia,"Times New Roman",serif;
+  --f-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-chalk:"Caveat","Marker Felt","Comic Sans MS",cursive;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121618; --surface:#1b2124; --ink:#e9ecea; --muted:#9aa4a8; --line:#2b3337;
+  --accent:#86c0ae; --accent-ink:#0e1916; --accent-soft:#1f302b;
+  --slate:#2b3438; --chalk:#f1f1ec;
+  --danger:#ff8b7c; --danger-soft:#3a1f1c; --new:#f2c46d; --new-soft:#352a14; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121618; --surface:#1b2124; --ink:#e9ecea; --muted:#9aa4a8; --line:#2b3337;
+  --accent:#86c0ae; --accent-ink:#0e1916; --accent-soft:#1f302b;
+  --slate:#2b3438; --chalk:#f1f1ec;
+  --danger:#ff8b7c; --danger-soft:#3a1f1c; --new:#f2c46d; --new-soft:#352a14; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 96px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 10px;border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--f-name);font-weight:600;font-size:1.25rem;margin:0;letter-spacing:.01em}
+.meta{color:var(--muted);font-size:.8rem;font-variant-numeric:tabular-nums}
+.search{margin-top:10px;position:relative}
+.search input{width:100%;font:inherit;font-size:16px;padding:11px 40px 11px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.search input::-webkit-search-cancel-button{display:none}
+.search input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);font-size:1.3rem;width:32px;height:32px;cursor:pointer;border-radius:8px}
+.chips{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;font:inherit;font-size:.82rem;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip.sep{margin-left:6px}
+.chip:focus-visible,.row-btn:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.status{color:var(--muted);font-size:.85rem;margin:14px 2px 0}
+section{margin-top:22px}
+h2{font-family:var(--f-name);font-weight:600;font-size:.82rem;letter-spacing:.09em;text-transform:uppercase;margin:0 0 8px 2px;color:var(--muted)}
+.list{display:grid;gap:6px}
+.bottle{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.bottle.redgap{margin-top:10px}
+.row-btn{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:11px 12px;cursor:pointer}
+.thumb{width:48px;height:64px;border-radius:6px;object-fit:cover;background:var(--bg);border:1px solid var(--line);display:block}
+.thumb.none{display:grid;place-items:center;color:var(--muted);font-size:.6rem;letter-spacing:.06em;text-transform:uppercase}
+.bottle.is-out .thumb{opacity:.45;filter:grayscale(1)}
+.photo{display:block;width:100%;max-height:440px;object-fit:contain;background:var(--bg);border-radius:10px;border:1px solid var(--line)}
+.name{font-family:var(--f-name);font-size:1rem;line-height:1.3;min-width:0}
+.name .cuv{font-style:normal}
+.sub{color:var(--muted);font-size:.84rem;margin-top:2px;min-width:0}
+.sub b{font-family:var(--f-name);font-style:italic;font-weight:700;color:var(--ink)}
+.tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.tag{font-size:.7rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:5px;border:1px solid var(--line);color:var(--muted)}
+.tag.new{background:var(--new-soft);color:var(--new);border-color:transparent}
+.tag.out{background:var(--danger-soft);color:var(--danger);border-color:transparent}
+.tag.red{color:var(--muted);border-style:dashed}
+.tag.star{color:var(--accent);border-color:var(--accent)}
+.price{font-family:var(--f-chalk);font-size:1.45rem;line-height:1;background:var(--slate);color:var(--chalk);padding:6px 10px 4px;border-radius:8px;min-width:52px;text-align:center;font-variant-numeric:tabular-nums}
+.bottle.is-out .name,.bottle.is-out .sub{text-decoration:line-through;text-decoration-color:var(--danger)}
+.bottle.is-out .price{opacity:.45}
+.detail{border-top:1px solid var(--line);padding:14px 14px 16px;display:grid;gap:14px}
+.hook{font-family:var(--f-name);font-size:1.02rem;line-height:1.45;background:var(--accent-soft);border-radius:10px;padding:12px 14px}
+.lbl{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+.detail p{margin:0;max-width:65ch}
+.detail ul{margin:0;padding-left:18px;max-width:65ch;display:grid;gap:4px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.88rem}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;min-width:0}
+.gloss{display:grid;gap:6px}
+.gloss details{border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+.gloss summary{cursor:pointer;font-weight:500;font-size:.88rem}
+.gloss details p{margin-top:6px;font-size:.88rem;color:var(--muted)}
+.stock{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:12px}
+.who{font-size:.82rem;color:var(--muted)}
+.btn{font:inherit;font-weight:600;font-size:.9rem;padding:9px 14px;border-radius:9px;cursor:pointer;border:1px solid var(--danger);background:var(--surface);color:var(--danger)}
+.btn.back{border-color:var(--accent);color:var(--accent)}
+.btn[disabled]{opacity:.5;cursor:default}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:22px 18px;margin-top:18px;color:var(--muted)}
+.empty strong{color:var(--ink);display:block;margin-bottom:4px;font-family:var(--f-name);font-size:1.05rem}
+.toast{width:max-content;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--slate);color:var(--chalk);padding:10px 12px 10px 16px;border-radius:12px;display:flex;gap:12px;align-items:center;font-size:.9rem;max-width:calc(100% - 32px);z-index:10;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+.toast button{font:inherit;font-weight:600;background:none;border:1px solid currentColor;color:inherit;border-radius:7px;padding:4px 10px;cursor:pointer}
+.legend{color:var(--muted);font-size:.78rem;margin:26px 2px 0}
+@media (prefers-reduced-motion:no-preference){.detail{animation:open .16s ease-out}@keyframes open{from{opacity:.4;transform:translateY(-3px)}to{opacity:1;transform:none}}}
+html{color-scheme:light}
+body{margin:0;-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+img{max-width:100%}
+.wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+header{padding-top:calc(14px + env(safe-area-inset-top,0px))!important;top:0!important}
+.modal-back{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:grid;place-items:center;padding:16px}
+.modal{background:var(--surface);color:var(--ink);border-radius:14px;padding:20px;width:100%;max-width:360px;display:grid;gap:12px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.modal h3{margin:0;font-family:var(--f-name);font-size:1.15rem}
+.modal p{margin:0;color:var(--muted);font-size:.88rem}
+.modal label{font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:grid;gap:5px}
+.modal input{font:inherit;font-size:18px;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.modal input#pin{letter-spacing:.3em}
+.modal .row{display:flex;gap:8px;justify-content:flex-end}
+.modal .err{color:var(--danger);font-size:.85rem;min-height:1em}
+.btn.solid{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.plain{border-color:var(--line);color:var(--ink)}
+.whoami{font-size:.78rem;color:var(--muted);margin:18px 2px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.whoami button{font:inherit;font-size:.78rem;background:none;border:0;color:var(--accent);text-decoration:underline;cursor:pointer;padding:0}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="top">
+      <h1>Fool's Errand Bottles</h1>
+      <div class="meta" id="meta">Loading…</div>
+    </div>
+    <div class="search">
+      <input id="q" type="search" autocomplete="off" placeholder="Try “salty white” or “chillable red under 70”" aria-label="Search bottles">
+      <button class="clear" id="clear" aria-label="Clear search" hidden>×</button>
+    </div>
+    <div class="chips" id="chips" role="toolbar" aria-label="Filters"></div>
+  </header>
+  <div id="status" class="status" hidden></div>
+  <main id="list">
+    <div class="empty"><strong>Loading the bottle list…</strong>The bottles come from the October 2026 bottle sheet. This takes a second the first time.</div>
+  </main>
+  <div class="whoami" id="whoami"></div>
+  <p class="legend">** on the guest list means a chilled red or a skin-contact wine. “Slightly reductive” means a flinty, struck-match edge from winemaking that limits air. Prices are the chalk price on the bottle.</p>
+</div>
+<div class="modal-back" id="pinBack" hidden>
+  <form class="modal" id="pinForm" autocomplete="off">
+    <h3>Staff PIN</h3>
+    <p>Enter the staff PIN to mark bottles 86'd. You only need to do this once on this phone.</p>
+    <label for="pin">PIN<input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="8" required></label>
+    <label for="who">Your name (shows in the 86 log)<input id="who" maxlength="40" placeholder="e.g. Sam"></label>
+    <div class="err" id="pinErr"></div>
+    <div class="row"><button type="button" class="btn plain" id="pinCancel">Cancel</button><button type="submit" class="btn solid" id="pinOk">Unlock</button></div>
+  </form>
+</div>
+<div class="toast" id="toast" hidden role="status"><span id="toastMsg"></span><button id="toastUndo" hidden>Undo</button></div>
+
+<script>
+(() => {
+const SECTION_ORDER = ['Champagne','Sparkling','California & Oregon','Riesling','Burgundy, Savoie & Jura','Alsace, Loire, Rhône & South','Spain & Italy','Germany, Austria & Eastern Europe'];
+const COLORS = ['Bubbles','White','Orange','Pink','Red'];
+const S = { cat:null, stock:{}, q:'', color:null, onlyNew:false, onlyStar:false, onlyRed:false, only86:false, open:null,
+            photos:new Set(), pin:null, name:'', pending:null };
+const API = 'https://script.google.com/macros/s/AKfycbzaHvsjstIOre58Q1VIJwSuQw9aGUtafPwg00oOA98HswpyjgmS_0mmSZ1ctaePAX5K/exec';
+const $ = id => document.getElementById(id);
+
+const norm = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const STOP = new Set('a an the with and for something some wine wines bottle bottles like that is of to on in by me show find any'.split(' '));
+const SYN = {
+  salty:['salt','saline','iodine','briny','oyster','sea spray'], saline:['salt','saline','iodine','briny'], briny:['saline','salt','briny'],
+  mineral:['mineral','chalk','slate','stony','flint','saline'], minerally:['mineral','chalk','slate','stony','flint'],
+  reductive:['reductive','flint','flinty','struck-match'], flinty:['flint','flinty','reductive','struck-match'],
+  funky:['zero-zero','unfiltered','skin','natural','cider','wild'], natural:['zero-zero','sulphur','unfiltered','wild yeast','natural'],
+  dry:['dry','trocken','brut','bone-dry','steely'], sweet:['sweet','off-dry','feinherb','spatlese','kabinett'],
+  oaky:['oak','barrel','tonneau','foudre'], light:['light','zippy','crunchy','chillable','delicate'], big:['structured','firm','deep','grippy','dark'],
+  fizzy:['bubbles'], fizz:['bubbles'], sparkling:['bubbles'], bubbly:['bubbles'], champagne:['champagne'], rose:['pink'], rosé:['pink']
+};
+const COLOR_WORDS = { red:'Red', reds:'Red', white:'White', whites:'White', orange:'Orange', pink:'Pink', rose:'Pink', bubbles:'Bubbles', sparkling:'Bubbles', fizzy:'Bubbles', fizz:'Bubbles', bubbly:'Bubbles' };
+
+function hay(b){
+  if (b._h) return b._h;
+  const parts = [b.producer,b.wine,b.grapes,b.place,b.section,b.taste,b.sub,b.vintage,b.color,b.menu&&b.menu.style,b.menu&&b.menu.place,
+    b.remember,(b.tasting||[]).join(' '),b.terroir,(b.producerNotes||[]).join(' '),(b.glossary||[]).join(' '),
+    b.chilled?'chilled chillable cold':'', b.skin?'skin contact orange skin-contact':'', b.isNew?'new':'', b.reductive?'reductive slightly reductive flinty flint struck-match struck match':'', b.guestList?'':'shelf off-menu'];
+  return (b._h = norm(parts.join(' | ')));
+}
+function parseQuery(q){
+  let s = norm(q), min=null, max=null, color=null;
+  s = s.replace(/(under|below|less than|<|max)\s*\$?\s*(\d{2,4})/g,(m,a,n)=>{max=+n;return ' '});
+  s = s.replace(/(over|above|more than|>|min)\s*\$?\s*(\d{2,4})/g,(m,a,n)=>{min=+n;return ' '});
+  s = s.replace(/\$\s*(\d{2,4})\s*-\s*\$?\s*(\d{2,4})/g,(m,a,b)=>{min=+a;max=+b;return ' '});
+  const terms = [];
+  for (const t of s.split(/[\s,]+/).filter(Boolean)){
+    if (STOP.has(t)) continue;
+    if (COLOR_WORDS[t]) { color = COLOR_WORDS[t]; if (t!=='champagne') continue; }
+    terms.push(SYN[t] ? [t].concat(SYN[t]).map(norm) : [t]);
+  }
+  return {terms,min,max,color};
+}
+function matches(b,p){
+  if (p.min!=null && !(b.price>=p.min)) return false;
+  if (p.max!=null && !(b.price<=p.max)) return false;
+  if (p.color && b.color!==p.color && !(p.color==='Orange' && b.skin)) return false;
+  const h = hay(b);
+  return p.terms.every(alts => alts.some(a => {
+    if (a==='bubbles') return b.color==='Bubbles';
+    if (a==='pink') return b.color==='Pink' || h.includes('rose');
+    return wordRe(a).test(h);
+  }));
+}
+function score(b,p){
+  const h = hay(b); let n = 0;
+  for (const alts of p.terms) for (const a of alts){
+    const m = h.match(new RegExp('(^|[^a-z0-9])' + a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'g'));
+    if (m) n += m.length * (a===alts[0] ? 2 : 1);
+  }
+  return n;
+}
+const _re = {};
+function wordRe(a){ return _re[a] || (_re[a] = new RegExp('(^|[^a-z0-9])' + a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))); }
+const isOut = b => !!(S.stock[b.id] && S.stock[b.id].out);
+
+function el(tag, attrs, ...kids){
+  const e = document.createElement(tag);
+  for (const k in (attrs||{})){
+    const v = attrs[k]; if (v==null || v===false) continue;
+    if (k==='class') e.className=v; else if (k==='text') e.textContent=v; else if (k.startsWith('on')) e.addEventListener(k.slice(2),v); else e.setAttribute(k, v===true?'':v);
+  }
+  for (const c of kids.flat()) if (c!=null && c!==false) e.append(c.nodeType?c:document.createTextNode(c));
+  return e;
+}
+
+function renderChips(){
+  const box = $('chips'); box.textContent='';
+  const outN = S.cat ? S.cat.bottles.filter(isOut).length : 0;
+  const newN = S.cat ? S.cat.bottles.filter(b=>b.isNew).length : 0;
+  box.append(el('button',{class:'chip','aria-pressed':String(!S.color),onclick:()=>{S.color=null;render()}},'All'));
+  for (const c of COLORS) box.append(el('button',{class:'chip','aria-pressed':String(S.color===c),onclick:()=>{S.color=S.color===c?null:c;render()}},c));
+  box.append(el('button',{class:'chip sep','aria-pressed':String(S.onlyNew),onclick:()=>{S.onlyNew=!S.onlyNew;render()}},`New (${newN})`));
+  box.append(el('button',{class:'chip','aria-pressed':String(S.onlyStar),onclick:()=>{S.onlyStar=!S.onlyStar;render()}},'** Chilled / skin'));
+  box.append(el('button',{class:'chip','aria-pressed':String(S.onlyRed),onclick:()=>{S.onlyRed=!S.onlyRed;render()}},'Slightly reductive'));
+  box.append(el('button',{class:'chip','aria-pressed':String(S.only86),onclick:()=>{S.only86=!S.only86;render()}},`86'd (${outN})`));
+}
+
+function render(){
+  renderChips();
+  const list = $('list');
+  if (!S.cat){ return; }
+  const p = parseQuery(S.q);
+  const all = S.cat.bottles;
+  const shown = all.filter(b =>
+    (!S.color || b.color===S.color || (S.color==='Orange' && b.skin)) &&
+    (!S.onlyNew || b.isNew) && (!S.onlyStar || b.chilled || b.skin) && (!S.onlyRed || b.reductive) && (!S.only86 || isOut(b)) && matches(b,p));
+  const outN = all.filter(isOut).length;
+  $('meta').textContent = `${S.cat.edition} · ${all.filter(b=>b.guestList).length} on the list` + (outN?` · ${outN} 86'd`:'');
+  const st = $('status');
+  const filtering = S.q || S.color || S.onlyNew || S.onlyStar || S.onlyRed || S.only86;
+  st.hidden = !filtering;
+  st.textContent = filtering ? `${shown.length} of ${all.length} bottles` : '';
+  list.textContent='';
+  if (!shown.length){
+    list.append(el('div',{class:'empty'}, el('strong',{text: S.q ? `No bottles match “${S.q}”.` : 'No bottles match these filters.'}),
+      'Try a grape, a place or a style, like “aligoté”, “Mosel” or “chillable red”. Tap All to clear the colour filter.'));
+    return;
+  }
+  if (p.terms.length){
+    const ranked = shown.map(b=>[score(b,p),b]).sort((x,y)=>y[0]-x[0] || (x[1].price||0)-(y[1].price||0)).map(x=>x[1]);
+    const sec = el('section',{'aria-label':'Best matches'}, el('h2',{text:'Best matches first'}));
+    const lst = el('div',{class:'list'});
+    for (const b of ranked) lst.append(bottleCard(b,false,true));
+    sec.append(lst); list.append(sec);
+    if (S.open) resolveNames();
+    return;
+  }
+  const secs = {};
+  for (const b of shown) (secs[b.section] = secs[b.section] || []).push(b);
+  const order = SECTION_ORDER.filter(s=>secs[s]).concat(Object.keys(secs).filter(s=>!SECTION_ORDER.includes(s)));
+  for (const s of order){
+    const items = secs[s].sort((a,b)=> ((a.color==='Red')-(b.color==='Red')) || (a.order-b.order));
+    const sec = el('section',{'aria-label':s}, el('h2',{text:s}));
+    const lst = el('div',{class:'list'});
+    let prevRed = null;
+    for (const b of items){
+      const red = b.color==='Red';
+      lst.append(bottleCard(b, prevRed===false && red));
+      prevRed = red;
+    }
+    sec.append(lst); list.append(sec);
+  }
+  if (S.open) resolveNames();
+}
+
+function menuParts(b){
+  const m = b.menu||{};
+  const prod = m.prod || b.producer, cuv = m.prod ? m.cuv : b.wine, style = m.prod ? m.style : b.grapes, place = m.prod ? m.place : b.place;
+  return {prod,cuv,style,place};
+}
+
+function bottleCard(b, redGap, showSection){
+  const out = isOut(b), open = S.open===b.id;
+  const m = menuParts(b);
+  const card = el('article',{class:'bottle'+(out?' is-out':'')+(redGap?' redgap':''), id:'b-'+b.id});
+  const tags = el('div',{class:'tags'},
+    out && el('span',{class:'tag out',text:"86'd"}),
+    b.isNew && el('span',{class:'tag new',text:'New'}),
+    (b.chilled||b.skin) && el('span',{class:'tag star',text: b.skin ? '** Skin contact' : '** Serve chilled'}),
+    b.reductive && el('span',{class:'tag red',text:'Slightly reductive'}),
+    !b.guestList && el('span',{class:'tag',text:'Shelf only'}));
+  const thumb = b.photo
+    ? el('img',{class:'thumb',src:'thumbs/'+b.id+'.jpg',alt:'',loading:'lazy',decoding:'async',width:'48',height:'64'})
+    : el('div',{class:'thumb none','aria-hidden':'true'},'No photo');
+  const btn = el('button',{class:'row-btn','aria-expanded':String(open),'aria-controls':'d-'+b.id,onclick:()=>{S.open = open?null:b.id; render(); if(!open) document.getElementById('b-'+b.id)?.scrollIntoView({block:'nearest'});}},
+    thumb,
+    el('div',{style:'min-width:0'},
+      el('div',{class:'name'}, m.prod, m.cuv ? el('span',{class:'cuv'},' ‘'+m.cuv+'’') : null),
+      el('div',{class:'sub'}, m.style ? el('b',{text:m.style}) : null, ' ', [m.place,b.vintage].filter(Boolean).join(' '), showSection ? ' · '+b.section : ''),
+      tags.childNodes.length ? tags : null),
+    el('div',{class:'price','aria-label':b.price!=null?`$${b.price}`:'No price'}, b.price!=null ? String(b.price) : '—'));
+  card.append(btn);
+  if (open) card.append(detail(b));
+  return card;
+}
+
+function detail(b){
+  const d = el('div',{class:'detail',id:'d-'+b.id});
+  if (b.photo) d.append(el('img',{class:'photo',src:'photos/'+b.id+'.jpg',alt:`Label of ${b.producer}${b.wine?' ‘'+b.wine+'’':''} ${b.vintage||''}`.trim(),decoding:'async'}));
+  if (b.remember) d.append(el('div',{class:'hook'}, b.remember));
+  if (b.tasting && b.tasting.length) d.append(el('div',{}, el('p',{class:'lbl',text:'Tasting'}), el('ul',{}, b.tasting.map(t=>el('li',{text:t})))));
+  if (b.terroir) d.append(el('div',{}, el('p',{class:'lbl',text:'Terroir'}), el('p',{text:b.terroir})));
+  if (b.producerNotes && b.producerNotes.length) d.append(el('div',{}, el('p',{class:'lbl',text:'Producer & winemaking'}), el('ul',{}, b.producerNotes.map(t=>el('li',{text:t})))));
+  d.append(el('dl',{class:'facts'},
+    el('dt',{text:'Wine'}), el('dd',{text:[b.producer, b.wine ? '‘'+b.wine+'’' : '', b.vintage].filter(Boolean).join(' ')}),
+    el('dt',{text:'Grapes'}), el('dd',{text:b.grapes||'—'}),
+    el('dt',{text:'Place'}), el('dd',{text:b.place||'—'}),
+    el('dt',{text:'Style'}), el('dd',{text:[b.taste,b.sub,b.reductive?'slightly reductive (flinty, struck-match edge)':''].filter(Boolean).join(' · ')||'—'}),
+    !b.guestList && el('dt',{text:'Guest list'}), !b.guestList && el('dd',{text:'Not printed on the guest list (shelf only)'})));
+  const g = (b.glossary||[]).filter(t => S.cat.glossary[t]);
+  if (g.length) d.append(el('div',{}, el('p',{class:'lbl',text:'Words to know'}),
+    el('div',{class:'gloss'}, g.map(t => el('details',{}, el('summary',{text:t}), el('p',{text:S.cat.glossary[t]}))))));
+  d.append(stockRow(b));
+  return d;
+}
+
+function stockRow(b){
+  const s = S.stock[b.id], out = !!(s && s.out);
+  const who = el('div',{class:'who'});
+  if (out){
+    const t = s.at ? new Date(s.at) : null;
+    const when = t && !isNaN(t) ? t.toLocaleString([], {weekday:'short', hour:'numeric', minute:'2-digit'}) : '';
+    who.textContent = "86'd" + (s.by ? ' by ' + s.by : '') + (when ? ' · ' + when : '');
+  } else who.textContent = 'In stock';
+  const row = el('div',{class:'stock'}, who);
+  row.append(el('button',{class:'btn'+(out?' back':''), onclick:(e)=>set86(b,!out,e.currentTarget)}, out ? 'Back in stock' : "Mark 86'd"));
+  return row;
+}
+function resolveNames(){}
+
+let toastTimer = null;
+function toast(msg, undo){
+  $('toastMsg').textContent = msg;
+  const u = $('toastUndo'); u.hidden = !undo; u.onclick = undo ? ()=>{ $('toast').hidden=true; undo(); } : null;
+  $('toast').hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>{$('toast').hidden=true}, undo?6000:3500);
+}
+
+function post(body){
+  return fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(r=>r.json());
+}
+function store(k,v){ try{ if(v==null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){} }
+function load(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+S.pin = load('fe.pin'); S.name = load('fe.name') || '';
+
+function askPin(then){
+  S.pending = then;
+  $('pinErr').textContent=''; $('pin').value=''; $('who').value=S.name||'';
+  $('pinBack').hidden=false; setTimeout(()=>$('pin').focus(),50);
+}
+$('pinCancel').addEventListener('click',()=>{ $('pinBack').hidden=true; S.pending=null; });
+$('pinForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const pin=$('pin').value.trim(), name=$('who').value.trim();
+  $('pinOk').disabled=true; $('pinErr').textContent='Checking…';
+  try{
+    const r = await post({action:'check',pin});
+    if (r.ok){ S.pin=pin; S.name=name; store('fe.pin',pin); store('fe.name',name); $('pinBack').hidden=true; renderWho(); const f=S.pending; S.pending=null; if(f) f(); }
+    else $('pinErr').textContent = r.error==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : "That PIN didn't work. Check with the manager.";
+  }catch(err){ $('pinErr').textContent="Couldn't reach the bottle list. Check the connection."; }
+  $('pinOk').disabled=false;
+});
+function renderWho(){
+  const w=$('whoami'); w.textContent='';
+  if (S.pin){ w.append((S.name?`Marking 86s as ${S.name}.`:'Staff PIN saved on this phone.')+' ', el('button',{onclick:()=>{ S.pin=null; store('fe.pin',null); renderWho(); }},'Forget PIN')); }
+}
+
+async function set86(b, out, btn){
+  if (!S.pin){ askPin(()=>set86(b,out)); return; }
+  if (btn) btn.disabled = true;
+  const prev = S.stock[b.id] ? Object.assign({}, S.stock[b.id]) : null;
+  // show it right away, then confirm with the sheet
+  if (out) S.stock[b.id] = {out:true, by:S.name, at:new Date().toISOString()}; else delete S.stock[b.id];
+  render();
+  try{
+    const r = await post({action:'86', pin:S.pin, id:b.id, out, name:S.name});
+    if (!r.ok){
+      if (prev) S.stock[b.id]=prev; else delete S.stock[b.id];
+      render();
+      if (r.error==='bad_pin'){ S.pin=null; store('fe.pin',null); renderWho(); toast('The staff PIN has changed. Enter the new one.'); askPin(()=>set86(b,out)); }
+      else if (r.error==='locked') toast('Too many wrong PIN tries. Wait 10 minutes.');
+      else toast("Couldn't save the 86. Try again in a moment.");
+      return;
+    }
+    const label = `${b.producer}${b.wine?' ‘'+b.wine+'’':''}`;
+    toast(out ? `${label} marked 86'd` : `${label} is back in stock`, ()=>set86(b,!out));
+  }catch(e){
+    if (prev) S.stock[b.id]=prev; else delete S.stock[b.id];
+    render();
+    toast("Couldn't reach the sheet. Check the connection and try again.");
+  }
+}
+
+// search + clear
+let qTimer=null;
+$('q').addEventListener('input', e => { $('clear').hidden = !e.target.value; clearTimeout(qTimer); qTimer = setTimeout(()=>{ S.q = e.target.value.trim(); S.open = null; render(); window.scrollTo(0,0); }, 120); });
+$('clear').addEventListener('click', () => { $('q').value=''; $('clear').hidden=true; S.q=''; render(); $('q').focus(); });
+renderChips();
+
+// data
+async function loadAll(){
+  try{
+    const [cat, photos] = await Promise.all([
+      fetch(API+'?action=data').then(r=>r.json()),
+      fetch('photos.json').then(r=>r.ok?r.json():[]).catch(()=>[])
+    ]);
+    if (!cat.ok) throw new Error(cat.error||'bad');
+    S.photos = new Set(photos);
+    try{ store('fe.cache', JSON.stringify({cat, photos})); }catch(e){}
+    apply(cat);
+  }catch(e){
+    if (!S.cat){
+      const c = load('fe.cache');
+      if (c){ try{ const o=JSON.parse(c); S.photos=new Set(o.photos||[]); apply(o.cat); toast('Showing the last saved list. Reconnect to update it.'); return; }catch(x){} }
+      $('meta').textContent=''; $('list').textContent='';
+      $('list').append(el('div',{class:'empty'}, el('strong',{text:"Couldn't load the bottle list"}), 'Check the connection, then close and reopen the app.'));
+    }
+  }
+}
+function apply(cat){
+  S.cat = { edition:cat.edition||'', glossary:cat.glossary||{}, bottles:(cat.bottles||[]).map(b=>Object.assign({},b,{photo:S.photos.has(b.id)})) };
+  S.stock = cat.stock || {};
+  render();
+}
+async function refreshStock(){
+  try{ const r = await fetch(API+'?action=stock').then(r=>r.json()); if (r.ok){ S.stock = r.stock||{}; if (S.cat) render(); } }catch(e){}
+}
+// paint from the saved copy first, then load fresh
+(()=>{ const c=load('fe.cache'); if(c){ try{ const o=JSON.parse(c); S.photos=new Set(o.photos||[]); apply(o.cat); }catch(e){} } })();
+renderWho();
+loadAll();
+setInterval(()=>{ if (document.visibilityState==='visible') refreshStock(); }, 30000);
+document.addEventListener('visibilitychange',()=>{ if (document.visibilityState==='visible') loadAll(); });
+})();
+</script>
+</body>
+</html>
