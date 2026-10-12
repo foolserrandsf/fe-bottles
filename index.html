@@ -141,7 +141,7 @@ header{background:#000;border-bottom:1px solid var(--line);margin-inline:-16px;p
 .bf select{font:inherit;font-size:16px;padding:10px 12px;border-radius:0;border:1px solid var(--line);background:#000;color:var(--ink)}
 .bf .chk{display:flex;gap:10px;align-items:center;text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:400;color:var(--ink)}
 .bf .chk input{width:20px;height:20px}
-.bf .hint{font-size:.78rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400}
+.modal .hint{font-size:.78rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400}
 .bf .prev{max-width:120px;max-height:160px;object-fit:contain;border:1px solid var(--line)}
 .qbox{display:grid;gap:10px}
 .qbox .q{border:1px solid var(--line);padding:10px;display:grid;gap:8px}
@@ -239,12 +239,21 @@ section{margin-top:30px}
   <div class="whoami" id="whoami"></div>
   <p class="legend">** on the guest list means a chilled red or a skin-contact wine. A blue “Chillable” tag means the red is served at room temperature but can take about 20 minutes in the fridge if a guest wants it cool. Prices are the chalk price on the bottle.</p>
 </div>
+<div class="modal-back" id="loginBack" hidden style="background:#000">
+  <form class="modal" id="loginForm" autocomplete="off">
+    <h3>Fool's Errand staff</h3>
+    <p>Enter the app PIN to open the bottle list. You only need to do this once on this phone.</p>
+    <label for="loginPin">App PIN<input id="loginPin" type="password" inputmode="numeric" maxlength="12" required></label>
+    <div class="err" id="loginErr"></div>
+    <div class="row"><button type="submit" class="btn solid" id="loginOk">Open</button></div>
+  </form>
+</div>
 <div class="modal-back" id="pinBack" hidden>
   <form class="modal" id="pinForm" autocomplete="off">
-    <h3>Staff PIN</h3>
-    <p>Enter the staff PIN to mark bottles 86'd. You only need to do this once on this phone.</p>
-    <label for="pin">PIN<input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="8" required></label>
-    <label for="who">Your name (shows in the 86 log)<input id="who" maxlength="40" placeholder="e.g. Sam"></label>
+    <h3>Your 86'd code</h3>
+    <p>Enter your own 86'd code (for example MS639-). The app logs your 86s under your name. You only need to do this once on this phone.</p>
+    <label for="pin">86'd code<input id="pin" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" required></label>
+    <label for="who">Your name <span class="hint">(only if you use the app PIN instead of your own code)</span><input id="who" maxlength="40" placeholder="e.g. Sam"></label>
     <div class="err" id="pinErr"></div>
     <div class="row"><button type="button" class="btn plain" id="pinCancel">Cancel</button><button type="submit" class="btn solid" id="pinOk">Unlock</button></div>
   </form>
@@ -253,7 +262,7 @@ section{margin-top:30px}
   <form class="modal" id="prForm" autocomplete="off">
     <h3>Print menu</h3>
     <p id="prIntro">Rebuilds the guest bottle list from the October sheet (86'd bottles left off) and makes the folded PDF to print. Takes about 30 seconds.</p>
-    <label for="prPw" id="prPwLab">Password<input id="prPw" type="password" autocapitalize="none" autocorrect="off" maxlength="40" required></label>
+    <label for="prPw" id="prPwLab">Your print code <span class="hint">(e.g. MS639print)</span><input id="prPw" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" required></label>
     <div class="err" id="prErr"></div>
     <div class="pr-res" id="prRes" hidden></div>
     <div class="row"><button type="button" class="btn plain" id="prCancel">Close</button><button type="submit" class="btn solid" id="prOk">Make PDF</button></div>
@@ -280,8 +289,7 @@ section{margin-top:30px}
       <label class="chk"><input type="checkbox" id="bf_skin"> Skin contact (gets **)</label>
       <label>Label photo <span class="hint">(take a straight-on photo of the front label)</span><input id="bf_photo" type="file" accept="image/*" capture="environment"></label>
       <img id="bf_prev" class="prev" alt="" hidden>
-      <label>Your name *<input id="bf_name" maxlength="40" placeholder="e.g. Sam"></label>
-      <label id="bf_pwLab">Password *<input id="bf_pw" type="password" autocapitalize="none" autocorrect="off" maxlength="40"></label>
+      <label id="bf_pwLab">Your add / edit code * <span class="hint">(e.g. MS639+ – logs the change under your name)</span><input id="bf_pw" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40"></label>
     </div>
     <div class="qbox" id="bfQ" hidden></div>
     <div class="err" id="bfErr"></div>
@@ -592,7 +600,6 @@ function openBottleForm(b){
   syncSelects(); $('bf_taste').value = v.taste || ''; syncSub(); $('bf_sub').value = v.sub || '';
   $('bf_chilled').checked = !!v.chilled; $('bf_skin').checked = !!v.skin;
   $('bf_photo').value=''; $('bf_prev').hidden = true;
-  $('bf_name').value = S.name || load('fe.name') || '';
   $('bf_pwLab').hidden = !!BF.pw; $('bf_pw').value='';
   $('bfErr').textContent=''; $('bfQ').hidden = true; $('bfFields').hidden = false; $('bfBtns').hidden = false;
   $('bfOk').disabled=false; $('bfOk').textContent = b ? 'Save changes' : 'Add bottle';
@@ -602,7 +609,7 @@ $('addOpen').addEventListener('click', ()=>openBottleForm(null));
 $('bfCancel').addEventListener('click', ()=>{ $('bfBack').hidden = true; });
 function bfBusy(on, label){ BF.busy=on; $('bfOk').disabled=on; if (label) $('bfOk').textContent=label; }
 function bfFail(r){
-  if (r && r.error==='bad_pw'){ BF.pw=null; $('bf_pwLab').hidden=false; return 'That password isn’t right.'; }
+  if (r && r.error==='bad_pw'){ BF.pw=null; $('bf_pwLab').hidden=false; return 'That add / edit code didn’t work.'; }
   if (r && r.error==='locked') return 'Too many wrong tries. Wait 10 minutes and try again.';
   if (r && r.error==='busy') return 'The sheet is busy. Try again in a few seconds.';
   if (r && r.error==='missing') return 'Fill in producer, vintage, price, section and style group.';
@@ -616,7 +623,7 @@ function applyCatalog(cat, openId){
 async function bfSend(body, okMsg){
   bfBusy(true, 'Saving…');
   try{
-    const r = await post(Object.assign({pw:BF.pw, name:$('bf_name').value.trim()}, body));
+    const r = await post(Object.assign({pw:BF.pw}, body));
     if (!r.ok){ $('bfErr').textContent = bfFail(r); bfBusy(false, BF.mode==='edit'?'Save changes':'Add bottle'); $('bfQ').hidden=true; $('bfFields').hidden=false; $('bfBtns').hidden=false; return; }
     $('bfBack').hidden = true; bfBusy(false);
     toast(r.nochange ? 'Nothing changed.' : okMsg);
@@ -634,12 +641,10 @@ const backToForm = ()=>{ $('bfQ').hidden=true; $('bfFields').hidden=false; $('bf
 $('bfForm').addEventListener('submit', async (e)=>{
   e.preventDefault(); if (BF.busy) return;
   $('bfErr').textContent='';
-  const v = formVals(), name = $('bf_name').value.trim();
-  if (!BF.pw){ const pw=$('bf_pw').value.trim(); if (!pw){ $('bfErr').textContent='Enter the password.'; return; } BF.pw = pw; }
-  if (!name){ $('bfErr').textContent='Enter your name.'; return; }
+  const v = formVals();
+  if (!BF.pw){ const pw=$('bf_pw').value.trim(); if (!pw){ $('bfErr').textContent='Enter your add / edit code.'; return; } BF.pw = pw; }
   if (!v.producer || !v.vintage || !v.price || !v.section || !v.taste || !$('bf_color').value){ $('bfErr').textContent='Fill in producer, vintage, chalk price, color, section and style group.'; return; }
   if (!/^(\d{4}|NV)$/.test(v.vintage)){ $('bfErr').textContent='Vintage should be a year like 2023, or NV.'; return; }
-  store('fe.name', name); if (!S.name) S.name = name;
   if (BF.mode==='edit'){
     const diff = {}; for (const k in v) if (String(v[k]) !== String(BF.init[k] ?? '')) diff[k] = v[k];
     // grape/style and place on an existing bottle change the printed-menu wording only (the booklet's long version stays)
@@ -688,7 +693,7 @@ $('prForm').addEventListener('submit', async (e)=>{
   try{
     const r = await post({action:'printmenu', pw});
     if (!r.ok){
-      $('prErr').textContent = r.error==='bad_pw' ? 'That password isn\u2019t right.' : r.error==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : r.error==='busy' ? 'Someone else is making a PDF right now. Try again in a minute.' : 'Something went wrong: ' + (r.error||'unknown');
+      $('prErr').textContent = r.error==='bad_pw' ? 'That print code didn\u2019t work.' : r.error==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : r.error==='busy' ? 'Someone else is making a PDF right now. Try again in a minute.' : 'Something went wrong: ' + (r.error||'unknown');
       $('prOk').disabled=false; $('prOk').textContent='Make PDF'; return;
     }
     const bytes = Uint8Array.from(atob(r.pdf), c=>c.charCodeAt(0));
@@ -727,14 +732,15 @@ $('pinForm').addEventListener('submit', async e=>{
   $('pinOk').disabled=true; $('pinErr').textContent='Checking…';
   try{
     const r = await post({action:'check',pin});
-    if (r.ok){ S.pin=pin; S.name=name; store('fe.pin',pin); store('fe.name',name); $('pinBack').hidden=true; renderWho(); const f=S.pending; S.pending=null; if(f) f(); }
-    else $('pinErr').textContent = r.error==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : "That PIN didn't work. Check with the manager.";
+    if (r.ok && r.typed && !name){ $('pinErr').textContent='That’s the app PIN – type your name too (or use your own 86’d code).'; $('pinOk').disabled=false; return; }
+    if (r.ok){ const nm = r.name || name; S.pin=pin; S.name=nm; store('fe.pin',pin); store('fe.name',nm); $('pinBack').hidden=true; renderWho(); const f=S.pending; S.pending=null; if(f) f(); }
+    else $('pinErr').textContent = r.error==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : "That code didn't work. Check with the manager.";
   }catch(err){ $('pinErr').textContent="Couldn't reach the bottle list. Check the connection."; }
   $('pinOk').disabled=false;
 });
 function renderWho(){
   const w=$('whoami'); w.textContent='';
-  if (S.pin){ w.append((S.name?`Marking 86s as ${S.name}.`:'Staff PIN saved on this phone.')+' ', el('button',{onclick:()=>{ S.pin=null; store('fe.pin',null); renderWho(); }},'Forget PIN')); }
+  if (S.pin){ w.append((S.name?`Marking 86s as ${S.name}.`:'86’d code saved on this phone.')+' ', el('button',{onclick:()=>{ S.pin=null; S.name=''; store('fe.pin',null); store('fe.name',null); renderWho(); }},'Not you? Forget code')); }
 }
 
 async function set86(b, out, btn){
@@ -749,8 +755,8 @@ async function set86(b, out, btn){
     if (!r.ok){
       if (prev) S.stock[b.id]=prev; else delete S.stock[b.id];
       render();
-      if (r.error==='bad_pin'){ S.pin=null; store('fe.pin',null); renderWho(); toast('The staff PIN has changed. Enter the new one.'); askPin(()=>set86(b,out)); }
-      else if (r.error==='locked') toast('Too many wrong PIN tries. Wait 10 minutes.');
+      if (r.error==='bad_pin'){ S.pin=null; store('fe.pin',null); renderWho(); toast('That 86’d code no longer works. Enter yours again.'); askPin(()=>set86(b,out)); }
+      else if (r.error==='locked') toast('Too many wrong code tries. Wait 10 minutes.');
       else toast("Couldn't save the 86. Try again in a moment.");
       return;
     }
@@ -775,9 +781,10 @@ renderChips();
 async function loadAll(){
   try{
     const [cat, photos] = await Promise.all([
-      fetch(API+'?action=data').then(r=>r.json()),
+      fetch(API+'?action=data&pin='+encodeURIComponent(S.appPin||'')).then(r=>r.json()),
       fetch('photos.json').then(r=>r.ok?r.json():[]).catch(()=>[])
     ]);
+    if (!cat.ok && (cat.error==='login' || cat.error==='locked')){ showLogin(cat.error); return; }
     if (!cat.ok) throw new Error(cat.error||'bad');
     S.photos = new Set(photos);
     try{ store('fe.cache', JSON.stringify({cat, photos})); }catch(e){}
@@ -799,15 +806,37 @@ function apply(cat){
   render();
 }
 async function refreshStock(){
-  try{ const r = await fetch(API+'?action=stock').then(r=>r.json()); if (r.ok){ S.stock = r.stock||{}; if (S.cat) render(); } }catch(e){}
+  if (!S.appPin) return;
+  try{ const r = await fetch(API+'?action=stock&pin='+encodeURIComponent(S.appPin)).then(r=>r.json()); if (r.error==='login'){ showLogin('login'); return; } if (r.ok){ S.stock = r.stock||{}; if (S.cat) render(); } }catch(e){}
 }
 // paint from the saved copy first, then load fresh
 setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp) sp.remove(); }, 6000);
-(()=>{ const c=load('fe.cache'); if(c){ try{ const o=JSON.parse(c); S.photos=new Set(o.photos||[]); apply(o.cat); }catch(e){} } })();
+function showLogin(err){
+  store('fe.cache', null); S.cat=null; $('list').textContent='';
+  const sp=document.getElementById('splash'); if(sp) sp.remove();
+  $('loginErr').textContent = err==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : (S.appPin ? 'The app PIN has changed. Enter the new one.' : '');
+  S.appPin=null; store('fe.app', null);
+  $('loginBack').hidden=false; setTimeout(()=>$('loginPin').focus(),50);
+}
+$('loginForm').addEventListener('submit', async e=>{
+  e.preventDefault(); const pin=$('loginPin').value.trim(); if(!pin) return;
+  $('loginOk').disabled=true; $('loginErr').textContent='Checking…';
+  try{
+    const r = await fetch(API+'?action=stock&pin='+encodeURIComponent(pin)).then(r=>r.json());
+    if (r.ok){ S.appPin=pin; store('fe.app',pin); $('loginBack').hidden=true; $('loginErr').textContent=''; loadAll(); }
+    else $('loginErr').textContent = r.error==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : 'That PIN didn’t work. Check with the manager.';
+  }catch(err){ $('loginErr').textContent='Couldn’t reach the bottle list. Check the connection.'; }
+  $('loginOk').disabled=false;
+});
+S.appPin = load('fe.app');
+if (!S.appPin){ store('fe.cache', null); showLogin(''); }
+else {
+  (()=>{ const c=load('fe.cache'); if(c){ try{ const o=JSON.parse(c); S.photos=new Set(o.photos||[]); apply(o.cat); }catch(e){} } })();
+  loadAll();
+}
 renderWho();
-loadAll();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122145';
+const APP_V = '202610122208';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
