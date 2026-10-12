@@ -268,6 +268,15 @@ section{margin-top:30px}
     <div class="row"><button type="button" class="btn plain" id="prCancel">Close</button><button type="submit" class="btn solid" id="prOk">Make PDF</button></div>
   </form>
 </div>
+<div class="modal-back" id="codeBack" hidden>
+  <form class="modal" id="codeForm" autocomplete="off">
+    <h3 id="codeTitle">Your add / edit code</h3>
+    <p>Enter your own add / edit code (for example MS639+). Changes are logged under your name. Don’t have one? Ask the manager before you start.</p>
+    <label for="codeIn">Add / edit code<input id="codeIn" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" required></label>
+    <div class="err" id="codeErr"></div>
+    <div class="row"><button type="button" class="btn plain" id="codeCancel">Cancel</button><button type="submit" class="btn solid" id="codeOk">Continue</button></div>
+  </form>
+</div>
 <div class="modal-back" id="bfBack" hidden>
   <form class="modal bf" id="bfForm" autocomplete="off" novalidate>
     <h3 id="bfTitle">Add a bottle</h3>
@@ -586,10 +595,29 @@ function formVals(){
     price:$('bf_price').value.replace(/[^0-9.]/g,''), grapes:$('bf_grapes').value.trim(), place:$('bf_place').value.trim(),
     section:$('bf_section').value, taste:$('bf_taste').value, sub:$('bf_sub').value, chilled:$('bf_chilled').checked, skin:$('bf_skin').checked };
 }
+let codeNext = null;
 function openBottleForm(b){
+  if (BF.pw) return showBottleForm(b);
+  codeNext = () => showBottleForm(b);
+  $('codeTitle').textContent = b ? 'Edit bottle – your code' : 'Add a bottle – your code';
+  $('codeErr').textContent=''; $('codeIn').value=''; $('codeOk').disabled=false;
+  $('codeBack').hidden=false; setTimeout(()=>$('codeIn').focus(),50);
+}
+$('codeCancel').addEventListener('click', ()=>{ $('codeBack').hidden=true; codeNext=null; });
+$('codeForm').addEventListener('submit', async e=>{
+  e.preventDefault(); const code=$('codeIn').value.trim(); if(!code) return;
+  $('codeOk').disabled=true; $('codeErr').textContent='Checking…';
+  try{
+    const r = await post({action:'bauth', pw:code});
+    if (r.ok){ BF.pw=code; BF.who=r.name||''; $('codeBack').hidden=true; const f=codeNext; codeNext=null; if(f) f(); }
+    else $('codeErr').textContent = r.error==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : 'That add / edit code didn’t work. Check with the manager.';
+  }catch(err){ $('codeErr').textContent='Couldn’t reach the bottle list. Check the connection.'; }
+  $('codeOk').disabled=false;
+});
+function showBottleForm(b){
   BF.mode = b ? 'edit' : 'add'; BF.b = b || null; BF.photo = null;
   $('bfTitle').textContent = b ? 'Edit bottle' : 'Add a bottle';
-  $('bfIntro').textContent = b ? 'Changes save to the bottle sheet and show in the app right away. The printed menu wording changes too.' : 'Goes straight onto the menu in its section. Claude researches the booklet page (story, tasting, terroir) afterwards.';
+  $('bfIntro').textContent = (BF.who ? (b ? 'Editing as ' : 'Adding as ') + BF.who + '. ' : '') + (b ? 'Changes save to the bottle sheet and show in the app right away. The printed menu wording changes too.' : 'Goes straight onto the menu in its section. Claude researches the booklet page (story, tasting, terroir) afterwards.');
   const m = b ? menuParts(b) : {};
   const v = b ? { producer:m.prod||'', wine:m.cuv||'', vintage:b.vintage||'', price:b.price!=null?String(b.price):'', grapes:m.style||'', place:m.place||'',
                   section:b.section||'', taste:b.taste||'', sub:b.sub||'', chilled:!!b.chilled, skin:!!b.skin } : {};
@@ -609,7 +637,7 @@ $('addOpen').addEventListener('click', ()=>openBottleForm(null));
 $('bfCancel').addEventListener('click', ()=>{ $('bfBack').hidden = true; });
 function bfBusy(on, label){ BF.busy=on; $('bfOk').disabled=on; if (label) $('bfOk').textContent=label; }
 function bfFail(r){
-  if (r && r.error==='bad_pw'){ BF.pw=null; $('bf_pwLab').hidden=false; return 'That add / edit code didn’t work.'; }
+  if (r && r.error==='bad_pw'){ BF.pw=null; $('bf_pwLab').hidden=false; return 'Your add / edit code no longer works – enter it below and save again.'; }
   if (r && r.error==='locked') return 'Too many wrong tries. Wait 10 minutes and try again.';
   if (r && r.error==='busy') return 'The sheet is busy. Try again in a few seconds.';
   if (r && r.error==='missing') return 'Fill in producer, vintage, price, section and style group.';
@@ -844,7 +872,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122216';
+const APP_V = '202610122220';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
