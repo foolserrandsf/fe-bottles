@@ -156,6 +156,7 @@ section{margin-top:30px}
 .tag.new{border:1px solid var(--ink);color:var(--ink);background:transparent}
 .tag.star,.tag.red{color:var(--muted);border-color:#4a4a48}
 .tag.out{background:var(--danger);color:#000;border-color:var(--danger)}
+.tag.chillable{background:#16324a;color:#a9d8ff;border-color:#4f9bd9}
 .bottle.is-out .name,.bottle.is-out .sub{text-decoration-color:var(--danger);opacity:.6}
 .detail{border-top:0;padding:4px 0 22px;gap:16px}
 .photo{border-radius:0;border:0;background:#000;max-height:520px}
@@ -220,7 +221,7 @@ section{margin-top:30px}
     <div class="empty"><strong>Loading the bottle list…</strong>The bottles come from the October 2026 bottle sheet. This takes a second the first time.</div>
   </main>
   <div class="whoami" id="whoami"></div>
-  <p class="legend">** on the guest list means a chilled red or a skin-contact wine. “Slightly reductive” means a flinty, struck-match edge from winemaking that limits air. Prices are the chalk price on the bottle.</p>
+  <p class="legend">** on the guest list means a chilled red or a skin-contact wine. A blue “Chillable” tag means the red is served at room temperature but can take about 20 minutes in the fridge if a guest wants it cool. “Slightly reductive” means a flinty, struck-match edge from winemaking that limits air. Prices are the chalk price on the bottle.</p>
 </div>
 <div class="modal-back" id="pinBack" hidden>
   <form class="modal" id="pinForm" autocomplete="off">
@@ -260,7 +261,7 @@ function hay(b){
   if (b._h) return b._h;
   const parts = [b.producer,b.wine,b.grapes,b.place,b.section,b.taste,b.sub,b.vintage,b.color,b.menu&&b.menu.style,b.menu&&b.menu.place,
     b.remember,(b.tasting||[]).join(' '),b.terroir,(b.producerNotes||[]).join(' '),(b.glossary||[]).join(' '),
-    b.chilled?'chilled chillable cold':'', b.skin?'skin contact orange skin-contact':'', b.isNew?'new':'', b.reductive?'reductive slightly reductive flinty flint struck-match struck match':'', b.guestList?'':'shelf off-menu'];
+    b.chilled?'chilled chillable cold':'', isChillable(b)?'chillable can be chilled':'', b.skin?'skin contact orange skin-contact':'', b.isNew?'new':'', b.reductive?'reductive slightly reductive flinty flint struck-match struck match':'', b.guestList?'':'shelf off-menu'];
   return (b._h = norm(parts.join(' | ')));
 }
 function parseQuery(q){
@@ -377,6 +378,8 @@ function menuParts(b){
   return {prod,cuv,style,place};
 }
 
+function isChillable(b){ return b.color==='Red' && !b.chilled && /chillable/i.test(b.taste||''); }
+
 function bottleCard(b, redGap, showSection){
   const out = isOut(b), open = S.open===b.id;
   const m = menuParts(b);
@@ -385,6 +388,7 @@ function bottleCard(b, redGap, showSection){
     out && el('span',{class:'tag out',text:"86'd"}),
     b.isNew && el('span',{class:'tag new',text:'New'}),
     (b.chilled||b.skin) && el('span',{class:'tag star',text: b.skin ? '** Skin contact' : '** Serve chilled'}),
+    isChillable(b) && el('span',{class:'tag chillable',text:'Chillable (not served chilled)'}),
     b.reductive && el('span',{class:'tag red',text:'Slightly reductive'}),
     !b.guestList && el('span',{class:'tag',text:'Shelf only'}));
   const thumb = b.photo
@@ -543,7 +547,7 @@ setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp) sp.remove();
 renderWho();
 loadAll();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122043';
+const APP_V = '202610122104';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
