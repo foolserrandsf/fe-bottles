@@ -793,7 +793,7 @@ async function loadAll(){
     if (!S.cat){
       const c = load('fe.cache');
       if (c){ try{ const o=JSON.parse(c); S.photos=new Set(o.photos||[]); apply(o.cat); toast('Showing the last saved list. Reconnect to update it.'); return; }catch(x){} }
-      $('meta').textContent=''; $('list').textContent='';
+      stopSplash(); $('meta').textContent=''; $('list').textContent='';
       $('list').append(el('div',{class:'empty'}, el('strong',{text:"Couldn't load the bottle list"}), 'Check the connection, then close and reopen the app.'));
     }
   }
@@ -803,8 +803,9 @@ const SPLASH_HTML = document.getElementById('splash') ? document.getElementById(
 function playSplash(){
   if (!SPLASH_HTML || document.getElementById('splash')) return;
   document.body.insertAdjacentHTML('afterbegin', SPLASH_HTML); T0 = Date.now();
-  setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp){ sp.classList.add('gone'); setTimeout(()=>sp.remove(),500); } }, 6000);
+  setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp){ sp.classList.add('gone'); setTimeout(()=>sp.remove(),500); } }, 20000);
 }
+function stopSplash(){ const sp=document.getElementById('splash'); if(sp) sp.remove(); }
 function apply(cat){
   setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp){ sp.classList.add('gone'); setTimeout(()=>sp.remove(),500); } }, Math.max(250, 2200-(Date.now()-T0)));
   S.cat = { edition:cat.edition||'', glossary:cat.glossary||{}, bottles:(cat.bottles||[]).map(b=>Object.assign({},b,{photo:S.photos.has(b.id) || !!b.photoUrl, reductive: SHOW_REDUCTIVE && b.reductive})) };
@@ -816,7 +817,8 @@ async function refreshStock(){
   try{ const r = await fetch(API+'?action=stock&pin='+encodeURIComponent(S.appPin)).then(r=>r.json()); if (r.error==='login'){ showLogin('login'); return; } if (r.ok){ S.stock = r.stock||{}; if (S.cat) render(); } }catch(e){}
 }
 // paint from the saved copy first, then load fresh
-setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp) sp.remove(); }, 6000);
+setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp && S.cat) sp.remove(); }, 6000);
+setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp) sp.remove(); }, 20000);
 function showLogin(err){
   store('fe.cache', null); S.cat=null; $('list').textContent='';
   const sp=document.getElementById('splash'); if(sp) sp.remove();
@@ -826,12 +828,12 @@ function showLogin(err){
 }
 $('loginForm').addEventListener('submit', async e=>{
   e.preventDefault(); const pin=$('loginPin').value.trim(); if(!pin) return;
-  $('loginOk').disabled=true; $('loginErr').textContent='Checking…';
+  $('loginOk').disabled=true; $('loginErr').textContent=''; $('loginPin').blur(); playSplash();
   try{
     const r = await fetch(API+'?action=stock&pin='+encodeURIComponent(pin)).then(r=>r.json());
-    if (r.ok){ S.appPin=pin; store('fe.app',pin); $('loginBack').hidden=true; $('loginErr').textContent=''; $('loginPin').blur(); playSplash(); loadAll(); }
-    else $('loginErr').textContent = r.error==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : 'That PIN didn’t work. Check with the manager.';
-  }catch(err){ $('loginErr').textContent='Couldn’t reach the bottle list. Check the connection.'; }
+    if (r.ok){ S.appPin=pin; store('fe.app',pin); $('loginBack').hidden=true; $('loginErr').textContent=''; loadAll(); }
+    else { stopSplash(); $('loginErr').textContent = r.error==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : 'That PIN didn’t work. Check with the manager.'; }
+  }catch(err){ stopSplash(); $('loginErr').textContent='Couldn’t reach the bottle list. Check the connection.'; }
   $('loginOk').disabled=false;
 });
 S.appPin = load('fe.app');
@@ -842,7 +844,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122214';
+const APP_V = '202610122216';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
