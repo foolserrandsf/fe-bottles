@@ -221,7 +221,7 @@ section{margin-top:30px}
     <div class="empty"><strong>Loading the bottle list…</strong>The bottles come from the October 2026 bottle sheet. This takes a second the first time.</div>
   </main>
   <div class="whoami" id="whoami"></div>
-  <p class="legend">** on the guest list means a chilled red or a skin-contact wine. A blue “Chillable” tag means the red is served at room temperature but can take about 20 minutes in the fridge if a guest wants it cool. “Slightly reductive” means a flinty, struck-match edge from winemaking that limits air. Prices are the chalk price on the bottle.</p>
+  <p class="legend">** on the guest list means a chilled red or a skin-contact wine. A blue “Chillable” tag means the red is served at room temperature but can take about 20 minutes in the fridge if a guest wants it cool. Prices are the chalk price on the bottle.</p>
 </div>
 <div class="modal-back" id="pinBack" hidden>
   <form class="modal" id="pinForm" autocomplete="off">
@@ -239,6 +239,7 @@ section{margin-top:30px}
 (() => {
 const SECTION_ORDER = ['Champagne','Sparkling','California & Oregon','Riesling','Burgundy, Savoie & Jura','Alsace, Loire, Rhône & South','Spain & Italy','Germany, Austria & Eastern Europe'];
 const COLORS = ['Bubbles','White','Orange','Pink','Red'];
+const SHOW_REDUCTIVE = false; // "Slightly reductive" tags hidden for now; the sheet column is kept
 const S = { cat:null, stock:{}, q:'', color:null, onlyNew:false, onlyStar:false, onlyRed:false, only86:false, open:null,
             photos:new Set(), pin:null, name:'', pending:null };
 const API = 'https://script.google.com/macros/s/AKfycbzaHvsjstIOre58Q1VIJwSuQw9aGUtafPwg00oOA98HswpyjgmS_0mmSZ1ctaePAX5K/exec';
@@ -318,7 +319,7 @@ function renderChips(){
   for (const c of COLORS) box.append(el('button',{class:'chip','aria-pressed':String(S.color===c),onclick:()=>{S.color=S.color===c?null:c;render()}},c));
   box.append(el('button',{class:'chip sep','aria-pressed':String(S.onlyNew),onclick:()=>{S.onlyNew=!S.onlyNew;render()}},`New (${newN})`));
   box.append(el('button',{class:'chip','aria-pressed':String(S.onlyStar),onclick:()=>{S.onlyStar=!S.onlyStar;render()}},'** Chilled / skin'));
-  box.append(el('button',{class:'chip','aria-pressed':String(S.onlyRed),onclick:()=>{S.onlyRed=!S.onlyRed;render()}},'Slightly reductive'));
+  if (SHOW_REDUCTIVE) box.append(el('button',{class:'chip','aria-pressed':String(S.onlyRed),onclick:()=>{S.onlyRed=!S.onlyRed;render()}},'Slightly reductive'));
   box.append(el('button',{class:'chip','aria-pressed':String(S.only86),onclick:()=>{S.only86=!S.only86;render()}},`86'd (${outN})`));
 }
 
@@ -534,7 +535,7 @@ async function loadAll(){
 const T0=Date.now();
 function apply(cat){
   setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp){ sp.classList.add('gone'); setTimeout(()=>sp.remove(),500); } }, Math.max(250, 2200-(Date.now()-T0)));
-  S.cat = { edition:cat.edition||'', glossary:cat.glossary||{}, bottles:(cat.bottles||[]).map(b=>Object.assign({},b,{photo:S.photos.has(b.id)})) };
+  S.cat = { edition:cat.edition||'', glossary:cat.glossary||{}, bottles:(cat.bottles||[]).map(b=>Object.assign({},b,{photo:S.photos.has(b.id), reductive: SHOW_REDUCTIVE && b.reductive})) };
   S.stock = cat.stock || {};
   render();
 }
@@ -547,7 +548,7 @@ setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp) sp.remove();
 renderWho();
 loadAll();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122104';
+const APP_V = '202610122116';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
