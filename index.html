@@ -148,6 +148,9 @@ header{background:#000;border-bottom:1px solid var(--line);margin-inline:-16px;p
 .bf .chk{display:flex;gap:10px;align-items:center;text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:400;color:var(--ink)}
 .bf .chk input{width:20px;height:20px}
 .modal .hint{font-size:.78rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400}
+.photo-pick{display:grid;gap:8px}
+.lbl-like{font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.btn.pick{display:grid;place-items:center;text-align:center;cursor:pointer;font-size:.72rem;padding:10px 6px}
 .bf .prev{max-width:120px;max-height:160px;object-fit:contain;border:1px solid var(--line)}
 .qbox{display:grid;gap:10px}
 .qbox .q{border:1px solid var(--line);padding:10px;display:grid;gap:8px}
@@ -302,7 +305,13 @@ section{margin-top:30px}
       <label>Taste sub-group <span class="hint">(optional)</span><select id="bf_sub"></select></label>
       <label class="chk" id="bf_chillRow"><input type="checkbox" id="bf_chilled"> Serve chilled (red served cold, gets **)</label>
       <label class="chk"><input type="checkbox" id="bf_skin"> Skin contact (gets **)</label>
-      <label>Label photo <span class="hint">(take a straight-on photo of the front label)</span><input id="bf_photo" type="file" accept="image/*" capture="environment"></label>
+      <div class="photo-pick">
+        <span class="lbl-like">Label photo <span class="hint">(straight-on photo of the front label)</span></span>
+        <div class="two">
+          <label class="btn plain pick">Take photo<input id="bf_photo" type="file" accept="image/*" capture="environment" hidden></label>
+          <label class="btn plain pick">Choose from photos<input id="bf_photo2" type="file" accept="image/*" hidden></label>
+        </div>
+      </div>
       <img id="bf_prev" class="prev" alt="" hidden>
       <label id="bf_pwLab">Your add / edit code * <span class="hint">(e.g. MS639+ – logs the change under your name)</span><input id="bf_pw" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40"></label>
     </div>
@@ -585,7 +594,7 @@ function syncSub(){
 }
 $('bf_color').addEventListener('change', syncSelects);
 $('bf_taste').addEventListener('change', syncSub);
-$('bf_photo').addEventListener('change', async (e)=>{
+async function onPhoto(e){
   const f = e.target.files && e.target.files[0]; BF.photo = null; $('bf_prev').hidden = true; if (!f) return;
   try{
     const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=URL.createObjectURL(f); });
@@ -595,7 +604,9 @@ $('bf_photo').addEventListener('change', async (e)=>{
     const url = c.toDataURL('image/jpeg',0.82); BF.photo = url.split(',')[1];
     $('bf_prev').src = url; $('bf_prev').hidden = false;
   }catch(err){ $('bfErr').textContent = 'Couldn’t read that photo. Try taking it again.'; }
-});
+}
+$('bf_photo').addEventListener('change', onPhoto);
+$('bf_photo2').addEventListener('change', onPhoto);
 function formVals(){
   return { producer:$('bf_producer').value.trim(), wine:$('bf_wine').value.trim(), vintage:$('bf_vintage').value.trim().toUpperCase(),
     price:$('bf_price').value.replace(/[^0-9.]/g,''), grapes:$('bf_grapes').value.trim(), place:$('bf_place').value.trim(),
@@ -633,7 +644,7 @@ function showBottleForm(b){
   fillSelect($('bf_section'), SECTIONS, v.section || '', 'Pick one…');
   syncSelects(); $('bf_taste').value = v.taste || ''; syncSub(); $('bf_sub').value = v.sub || '';
   $('bf_chilled').checked = !!v.chilled; $('bf_skin').checked = !!v.skin;
-  $('bf_photo').value=''; $('bf_prev').hidden = true;
+  $('bf_photo').value=''; $('bf_photo2').value=''; $('bf_prev').hidden = true;
   $('bf_pwLab').hidden = !!BF.pw; $('bf_pw').value='';
   $('bfErr').textContent=''; $('bfQ').hidden = true; $('bfFields').hidden = false; $('bfBtns').hidden = false;
   $('bfOk').disabled=false; $('bfOk').textContent = b ? 'Save changes' : 'Add bottle';
@@ -878,7 +889,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122222';
+const APP_V = '202610122226';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
