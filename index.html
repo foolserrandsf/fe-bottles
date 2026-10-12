@@ -798,7 +798,13 @@ async function loadAll(){
     }
   }
 }
-const T0=Date.now();
+let T0=Date.now();
+const SPLASH_HTML = document.getElementById('splash') ? document.getElementById('splash').outerHTML : '';
+function playSplash(){
+  if (!SPLASH_HTML || document.getElementById('splash')) return;
+  document.body.insertAdjacentHTML('afterbegin', SPLASH_HTML); T0 = Date.now();
+  setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp){ sp.classList.add('gone'); setTimeout(()=>sp.remove(),500); } }, 6000);
+}
 function apply(cat){
   setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp){ sp.classList.add('gone'); setTimeout(()=>sp.remove(),500); } }, Math.max(250, 2200-(Date.now()-T0)));
   S.cat = { edition:cat.edition||'', glossary:cat.glossary||{}, bottles:(cat.bottles||[]).map(b=>Object.assign({},b,{photo:S.photos.has(b.id) || !!b.photoUrl, reductive: SHOW_REDUCTIVE && b.reductive})) };
@@ -823,7 +829,7 @@ $('loginForm').addEventListener('submit', async e=>{
   $('loginOk').disabled=true; $('loginErr').textContent='Checking…';
   try{
     const r = await fetch(API+'?action=stock&pin='+encodeURIComponent(pin)).then(r=>r.json());
-    if (r.ok){ S.appPin=pin; store('fe.app',pin); $('loginBack').hidden=true; $('loginErr').textContent=''; loadAll(); }
+    if (r.ok){ S.appPin=pin; store('fe.app',pin); $('loginBack').hidden=true; $('loginErr').textContent=''; $('loginPin').blur(); playSplash(); loadAll(); }
     else $('loginErr').textContent = r.error==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : 'That PIN didn’t work. Check with the manager.';
   }catch(err){ $('loginErr').textContent='Couldn’t reach the bottle list. Check the connection.'; }
   $('loginOk').disabled=false;
@@ -836,7 +842,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122208';
+const APP_V = '202610122214';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
