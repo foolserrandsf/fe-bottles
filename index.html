@@ -137,7 +137,13 @@ header{background:#000;border-bottom:1px solid var(--line);margin-inline:-16px;p
 .printbtn{padding:7px 10px;font-size:.68rem;white-space:nowrap}
 .hist .who div+div{margin-top:3px}
 .bf{max-height:calc(100dvh - 32px);overflow:auto;max-width:440px}
-.bf .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bf .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.modal{box-sizing:border-box}
+.modal label{min-width:0}
+.modal input,.modal select{width:100%;min-width:0;box-sizing:border-box}
+.modal .chk input{width:20px;flex:none}
+#bfFields{display:grid;gap:12px;min-width:0}
+.bf{overflow-x:hidden}
 .bf select{font:inherit;font-size:16px;padding:10px 12px;border-radius:0;border:1px solid var(--line);background:#000;color:var(--ink)}
 .bf .chk{display:flex;gap:10px;align-items:center;text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:400;color:var(--ink)}
 .bf .chk input{width:20px;height:20px}
@@ -872,7 +878,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122220';
+const APP_V = '202610122222';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
