@@ -285,7 +285,7 @@ section{margin-top:30px}
 <div class="modal-back" id="pinBack" hidden>
   <form class="modal" id="pinForm" autocomplete="off">
     <h3>Your 86'd code</h3>
-    <p>Enter your own 86'd code (for example MS639-). The app logs your 86s under your name. You only need to do this once on this phone.</p>
+    <p>Enter your own 86'd code. The app logs your 86s under your name. You only need to do this once on this phone.</p>
     <label for="pin">86'd code<input id="pin" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" required></label>
     <label for="who">Your name <span class="hint">(only if you use the app PIN instead of your own code)</span><input id="who" maxlength="40" placeholder="e.g. Sam"></label>
     <div class="err" id="pinErr"></div>
@@ -296,7 +296,7 @@ section{margin-top:30px}
   <form class="modal" id="prForm" autocomplete="off">
     <h3>Print menu</h3>
     <p id="prIntro">Rebuilds the guest bottle list from the October sheet (86'd bottles left off) and makes the folded PDF to print. Takes about 30 seconds.</p>
-    <label for="prPw" id="prPwLab">Your print code <span class="hint">(e.g. MS639print)</span><input id="prPw" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" required></label>
+    <label for="prPw" id="prPwLab">Your print code<input id="prPw" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" required></label>
     <div class="err" id="prErr"></div>
     <div class="pr-res" id="prRes" hidden></div>
     <div class="row"><button type="button" class="btn plain" id="prCancel">Close</button><button type="submit" class="btn solid" id="prOk">Make PDF</button></div>
@@ -322,7 +322,7 @@ section{margin-top:30px}
 <div class="modal-back" id="codeBack" hidden>
   <form class="modal" id="codeForm" autocomplete="off">
     <h3 id="codeTitle">Your add / edit code</h3>
-    <p>Enter your own add / edit code (for example MS639+). Changes are logged under your name. Don’t have one? Ask the manager before you start.</p>
+    <p>Enter your own add / edit code. Changes are logged under your name. Don’t have one? Ask the manager before you start.</p>
     <label for="codeIn">Add / edit code<input id="codeIn" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" required></label>
     <div class="err" id="codeErr"></div>
     <div class="row"><button type="button" class="btn plain" id="codeCancel">Cancel</button><button type="submit" class="btn solid" id="codeOk">Continue</button></div>
@@ -355,7 +355,7 @@ section{margin-top:30px}
         </div>
       </div>
       <img id="bf_prev" class="prev" alt="" hidden>
-      <label id="bf_pwLab">Your add / edit code * <span class="hint">(e.g. MS639+ – logs the change under your name)</span><input id="bf_pw" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40"></label>
+      <label id="bf_pwLab">Your add / edit code * <span class="hint">(logs the change under your name)</span><input id="bf_pw" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40"></label>
     </div>
     <div class="qbox" id="bfQ" hidden></div>
     <div class="err" id="bfErr"></div>
@@ -1028,7 +1028,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122234';
+const APP_V = '202610122242';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
