@@ -297,8 +297,8 @@ section{margin-top:30px}
         <label>Vintage *<input id="bf_vintage" maxlength="6" inputmode="text" placeholder="2023 or NV"></label>
         <label>Chalk price $ *<input id="bf_price" inputmode="decimal" maxlength="6" placeholder="64"></label>
       </div>
-      <label>Grape(s) / style <span class="hint">(as on the menu, bold italic)</span><input id="bf_grapes" maxlength="80" placeholder="e.g. Chenin Blanc"></label>
-      <label>Place <span class="hint">(as on the menu)</span><input id="bf_place" maxlength="80" placeholder="e.g. Chinon"></label>
+      <label>Grape(s) / style <span class="hint">(the bold italic part on the menu, e.g. Cabernet Franc, Blanc de Noirs)</span><input id="bf_grapes" maxlength="80" placeholder="e.g. Cabernet Franc"></label>
+      <label>Place <span class="hint">(the town or region on the label, as on the menu – e.g. Saumur-Champigny, Mosel, Côtes Catalanes. Not the soil – Claude adds the terroir.)</span><input id="bf_place" maxlength="80" placeholder="e.g. Saumur-Champigny"></label>
       <label>Color *<select id="bf_color"></select></label>
       <label>Menu section *<select id="bf_section"></select></label>
       <label>Style group *<select id="bf_taste"></select><span class="hint" id="bf_tasteHint"></span></label>
@@ -891,7 +891,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122226';
+const APP_V = '202610122227';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
