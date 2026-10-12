@@ -133,7 +133,20 @@ html{color-scheme:dark}
 body{background:var(--bg);color:var(--ink)}
 header{background:#000;border-bottom:1px solid var(--line);margin-inline:-16px;padding-inline:16px}
 .brandbar{display:flex;align-items:center;gap:14px}
-.printbtn{margin-left:auto;flex:none;padding:7px 10px;font-size:.68rem}
+.hdrbtns{margin-left:auto;display:grid;gap:6px;flex:none}
+.printbtn{padding:7px 10px;font-size:.68rem;white-space:nowrap}
+.hist .who div+div{margin-top:3px}
+.bf{max-height:calc(100dvh - 32px);overflow:auto;max-width:440px}
+.bf .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bf select{font:inherit;font-size:16px;padding:10px 12px;border-radius:0;border:1px solid var(--line);background:#000;color:var(--ink)}
+.bf .chk{display:flex;gap:10px;align-items:center;text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:400;color:var(--ink)}
+.bf .chk input{width:20px;height:20px}
+.bf .hint{font-size:.78rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400}
+.bf .prev{max-width:120px;max-height:160px;object-fit:contain;border:1px solid var(--line)}
+.qbox{display:grid;gap:10px}
+.qbox .q{border:1px solid var(--line);padding:10px;display:grid;gap:8px}
+.qbox .q p{color:var(--ink)}
+.qbox .q .btn{width:100%}
 .pr-res{display:grid;gap:8px}
 .pr-res .warn{color:var(--danger);font-size:.82rem;max-height:160px;overflow:auto;white-space:pre-line}
 .brandbar img{width:52px;height:52px;flex:none;border-radius:50%;box-shadow:0 0 0 1px #f3f3f1}
@@ -209,7 +222,7 @@ section{margin-top:30px}
 
 <div class="wrap">
   <header>
-    <div class="brandbar"><img src="logo-mark.png" alt="Fool's Errand"><div><div class="wordmark">Bottle List</div><div class="meta" id="meta">Loading…</div></div><button class="btn plain printbtn" id="printOpen" type="button">Print menu</button></div>
+    <div class="brandbar"><img src="logo-mark.png" alt="Fool's Errand"><div><div class="wordmark">Bottle List</div><div class="meta" id="meta">Loading…</div></div><div class="hdrbtns"><button class="btn plain printbtn" id="addOpen" type="button">+ Add bottle</button><button class="btn plain printbtn" id="printOpen" type="button">Print menu</button></div></div>
     <div class="top">
       <h1>Fool's Errand Bottles</h1>
     </div>
@@ -244,6 +257,35 @@ section{margin-top:30px}
     <div class="err" id="prErr"></div>
     <div class="pr-res" id="prRes" hidden></div>
     <div class="row"><button type="button" class="btn plain" id="prCancel">Close</button><button type="submit" class="btn solid" id="prOk">Make PDF</button></div>
+  </form>
+</div>
+<div class="modal-back" id="bfBack" hidden>
+  <form class="modal bf" id="bfForm" autocomplete="off" novalidate>
+    <h3 id="bfTitle">Add a bottle</h3>
+    <p id="bfIntro">Goes straight onto the menu in its section. Claude researches the booklet page (story, tasting, terroir) afterwards.</p>
+    <div id="bfFields">
+      <label>Producer *<input id="bf_producer" maxlength="80" autocapitalize="words"></label>
+      <label>Wine / cuvée name <span class="hint">(blank if none)</span><input id="bf_wine" maxlength="80" autocapitalize="words"></label>
+      <div class="two">
+        <label>Vintage *<input id="bf_vintage" maxlength="6" inputmode="text" placeholder="2023 or NV"></label>
+        <label>Chalk price $ *<input id="bf_price" inputmode="decimal" maxlength="6" placeholder="64"></label>
+      </div>
+      <label>Grape(s) / style <span class="hint">(as on the menu, bold italic)</span><input id="bf_grapes" maxlength="80" placeholder="e.g. Chenin Blanc"></label>
+      <label>Place <span class="hint">(as on the menu)</span><input id="bf_place" maxlength="80" placeholder="e.g. Chinon"></label>
+      <label>Color *<select id="bf_color"></select></label>
+      <label>Menu section *<select id="bf_section"></select></label>
+      <label>Style group *<select id="bf_taste"></select><span class="hint" id="bf_tasteHint"></span></label>
+      <label>Taste sub-group <span class="hint">(optional)</span><select id="bf_sub"></select></label>
+      <label class="chk" id="bf_chillRow"><input type="checkbox" id="bf_chilled"> Serve chilled (red served cold, gets **)</label>
+      <label class="chk"><input type="checkbox" id="bf_skin"> Skin contact (gets **)</label>
+      <label>Label photo <span class="hint">(take a straight-on photo of the front label)</span><input id="bf_photo" type="file" accept="image/*" capture="environment"></label>
+      <img id="bf_prev" class="prev" alt="" hidden>
+      <label>Your name *<input id="bf_name" maxlength="40" placeholder="e.g. Sam"></label>
+      <label id="bf_pwLab">Password *<input id="bf_pw" type="password" autocapitalize="none" autocorrect="off" maxlength="40"></label>
+    </div>
+    <div class="qbox" id="bfQ" hidden></div>
+    <div class="err" id="bfErr"></div>
+    <div class="row" id="bfBtns"><button type="button" class="btn plain" id="bfCancel">Cancel</button><button type="submit" class="btn solid" id="bfOk">Save</button></div>
   </form>
 </div>
 <div class="toast" id="toast" hidden role="status"><span id="toastMsg"></span><button id="toastUndo" hidden>Undo</button></div>
@@ -428,7 +470,7 @@ function bottleCard(b, redGap, showSection){
     b.reductive && el('span',{class:'tag red',text:'Slightly reductive'}),
     !b.guestList && el('span',{class:'tag',text:'Shelf only'}));
   const thumb = b.photo
-    ? el('img',{class:'thumb',src:'thumbs/'+b.id+'.jpg',alt:'',loading:'lazy',decoding:'async',width:'48',height:'64'})
+    ? el('img',{class:'thumb',src:b.photoUrl ? b.photoUrl.replace(/sz=w\d+/,'sz=w200') : 'thumbs/'+b.id+'.jpg',alt:'',loading:'lazy',decoding:'async',width:'48',height:'64'})
     : el('div',{class:'thumb none','aria-hidden':'true'},'No photo');
   const btn = el('button',{class:'row-btn','aria-expanded':String(open),'aria-controls':'d-'+b.id,onclick:()=>{S.open = open?null:b.id; render(); if(!open) document.getElementById('b-'+b.id)?.scrollIntoView({block:'nearest'});}},
     thumb,
@@ -444,7 +486,7 @@ function bottleCard(b, redGap, showSection){
 
 function detail(b){
   const d = el('div',{class:'detail',id:'d-'+b.id});
-  if (b.photo) d.append(el('img',{class:'photo',src:'photos/'+b.id+'.jpg',alt:`Label of ${b.producer}${b.wine?' ‘'+b.wine+'’':''} ${b.vintage||''}`.trim(),decoding:'async'}));
+  if (b.photo) d.append(el('img',{class:'photo',src:b.photoUrl || 'photos/'+b.id+'.jpg',alt:`Label of ${b.producer}${b.wine?' ‘'+b.wine+'’':''} ${b.vintage||''}`.trim(),decoding:'async'}));
   if (b.remember) d.append(el('div',{class:'hook'}, b.remember));
   if (b.tasting && b.tasting.length) d.append(el('div',{}, el('p',{class:'lbl',text:'Tasting'}), el('ul',{}, b.tasting.map(t=>el('li',{text:t})))));
   if (b.terroir) d.append(el('div',{}, el('p',{class:'lbl',text:'Terroir'}), el('p',{text:b.terroir})));
@@ -459,6 +501,12 @@ function detail(b){
   if (g.length) d.append(el('div',{}, el('p',{class:'lbl',text:'Words to know'}),
     el('div',{class:'gloss'}, g.map(t => el('details',{}, el('summary',{text:t}), el('p',{text:S.cat.glossary[t]}))))));
   d.append(stockRow(b));
+  const hist = el('div',{class:'stock hist'});
+  const lines = el('div',{class:'who'},
+    b.addedOn ? el('div',{text:'Added by ' + (b.addedBy||'?') + ' · ' + b.addedOn}) : null,
+    b.editedOn ? el('div',{text:'Edited by ' + (b.editedBy||'?') + ' · ' + b.editedOn}) : null);
+  hist.append(lines, el('button',{class:'btn plain',type:'button',onclick:()=>openBottleForm(b)},'Edit bottle'));
+  d.append(hist);
   return d;
 }
 
@@ -484,6 +532,147 @@ function toast(msg, undo){
   $('toast').hidden = false;
   clearTimeout(toastTimer); toastTimer = setTimeout(()=>{$('toast').hidden=true}, undo?6000:3500);
 }
+
+
+/* ---------- add / edit bottles (password on the sheet's Staff app tab) ---------- */
+const BF = { mode:'add', b:null, init:{}, photo:null, pw:null, busy:false };
+const SECTIONS = SECTION_ORDER;
+const COLOR_GROUPS = () => {
+  const g = {}; for (const c of COLORS) g[c] = new Set();
+  for (const b of (S.cat?S.cat.bottles:[])) if (b.taste) (g[b.color] = g[b.color] || new Set()).add(b.taste);
+  return g;
+};
+const SUBS = (taste) => { const s = new Set(); for (const b of (S.cat?S.cat.bottles:[])) if (b.taste===taste && b.sub) s.add(b.sub); return [...s].sort(); };
+const fmtWhen = iso => { const t = iso ? new Date(iso) : null; if (!t || isNaN(t)) return ''; const p2=n=>String(n).padStart(2,'0');
+  return t.toLocaleDateString([], {weekday:'short'}) + ' ' + p2(t.getMonth()+1) + '/' + p2(t.getDate()) + '/' + p2(t.getFullYear()%100) + ' · ' + t.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); };
+function fillSelect(sel, opts, val, blank){
+  sel.textContent=''; if (blank!=null) sel.append(el('option',{value:''},blank));
+  for (const o of opts) sel.append(el('option',{value:o},o)); sel.value = val || (blank!=null ? '' : opts[0] || '');
+}
+function syncSelects(){
+  const color = $('bf_color').value, g = COLOR_GROUPS()[color] || new Set();
+  const cur = $('bf_taste').value; fillSelect($('bf_taste'), [...g].sort(), [...g].includes(cur) ? cur : '', 'Pick one…');
+  syncSub();
+  $('bf_chillRow').hidden = color !== 'Red'; if (color !== 'Red') $('bf_chilled').checked = false;
+}
+function syncSub(){
+  const t = $('bf_taste').value, cur = $('bf_sub').value, subs = SUBS(t);
+  fillSelect($('bf_sub'), subs, subs.includes(cur) ? cur : '', '—');
+  $('bf_tasteHint').textContent = /chillable/i.test(t) ? 'Gets the blue “Chillable (not served chilled)” tag unless Serve chilled is ticked.' : '';
+}
+$('bf_color').addEventListener('change', syncSelects);
+$('bf_taste').addEventListener('change', syncSub);
+$('bf_photo').addEventListener('change', async (e)=>{
+  const f = e.target.files && e.target.files[0]; BF.photo = null; $('bf_prev').hidden = true; if (!f) return;
+  try{
+    const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=URL.createObjectURL(f); });
+    const k = Math.min(1, 1400/Math.max(img.naturalWidth,img.naturalHeight));
+    const c = document.createElement('canvas'); c.width=Math.round(img.naturalWidth*k); c.height=Math.round(img.naturalHeight*k);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    const url = c.toDataURL('image/jpeg',0.82); BF.photo = url.split(',')[1];
+    $('bf_prev').src = url; $('bf_prev').hidden = false;
+  }catch(err){ $('bfErr').textContent = 'Couldn’t read that photo. Try taking it again.'; }
+});
+function formVals(){
+  return { producer:$('bf_producer').value.trim(), wine:$('bf_wine').value.trim(), vintage:$('bf_vintage').value.trim().toUpperCase(),
+    price:$('bf_price').value.replace(/[^0-9.]/g,''), grapes:$('bf_grapes').value.trim(), place:$('bf_place').value.trim(),
+    section:$('bf_section').value, taste:$('bf_taste').value, sub:$('bf_sub').value, chilled:$('bf_chilled').checked, skin:$('bf_skin').checked };
+}
+function openBottleForm(b){
+  BF.mode = b ? 'edit' : 'add'; BF.b = b || null; BF.photo = null;
+  $('bfTitle').textContent = b ? 'Edit bottle' : 'Add a bottle';
+  $('bfIntro').textContent = b ? 'Changes save to the bottle sheet and show in the app right away. The printed menu wording changes too.' : 'Goes straight onto the menu in its section. Claude researches the booklet page (story, tasting, terroir) afterwards.';
+  const m = b ? menuParts(b) : {};
+  const v = b ? { producer:m.prod||'', wine:m.cuv||'', vintage:b.vintage||'', price:b.price!=null?String(b.price):'', grapes:m.style||'', place:m.place||'',
+                  section:b.section||'', taste:b.taste||'', sub:b.sub||'', chilled:!!b.chilled, skin:!!b.skin } : {};
+  BF.init = v;
+  for (const k of ['producer','wine','vintage','price','grapes','place']) $('bf_'+k).value = v[k] || '';
+  fillSelect($('bf_color'), COLORS, b ? b.color : '', 'Pick one…');
+  fillSelect($('bf_section'), SECTIONS, v.section || '', 'Pick one…');
+  syncSelects(); $('bf_taste').value = v.taste || ''; syncSub(); $('bf_sub').value = v.sub || '';
+  $('bf_chilled').checked = !!v.chilled; $('bf_skin').checked = !!v.skin;
+  $('bf_photo').value=''; $('bf_prev').hidden = true;
+  $('bf_name').value = S.name || load('fe.name') || '';
+  $('bf_pwLab').hidden = !!BF.pw; $('bf_pw').value='';
+  $('bfErr').textContent=''; $('bfQ').hidden = true; $('bfFields').hidden = false; $('bfBtns').hidden = false;
+  $('bfOk').disabled=false; $('bfOk').textContent = b ? 'Save changes' : 'Add bottle';
+  $('bfBack').hidden = false; $('bfForm').scrollTop = 0;
+}
+$('addOpen').addEventListener('click', ()=>openBottleForm(null));
+$('bfCancel').addEventListener('click', ()=>{ $('bfBack').hidden = true; });
+function bfBusy(on, label){ BF.busy=on; $('bfOk').disabled=on; if (label) $('bfOk').textContent=label; }
+function bfFail(r){
+  if (r && r.error==='bad_pw'){ BF.pw=null; $('bf_pwLab').hidden=false; return 'That password isn’t right.'; }
+  if (r && r.error==='locked') return 'Too many wrong tries. Wait 10 minutes and try again.';
+  if (r && r.error==='busy') return 'The sheet is busy. Try again in a few seconds.';
+  if (r && r.error==='missing') return 'Fill in producer, vintage, price, section and style group.';
+  return 'Something went wrong' + (r && r.error ? ': '+r.error : '. Check the connection and try again.');
+}
+function applyCatalog(cat, openId){
+  if (!cat || !cat.ok) return loadAll();
+  try{ store('fe.cache', JSON.stringify({cat, photos:[...S.photos]})); }catch(e){}
+  apply(cat); if (openId){ S.open = openId; render(); setTimeout(()=>document.getElementById('b-'+openId)?.scrollIntoView({block:'start'}),60); }
+}
+async function bfSend(body, okMsg){
+  bfBusy(true, 'Saving…');
+  try{
+    const r = await post(Object.assign({pw:BF.pw, name:$('bf_name').value.trim()}, body));
+    if (!r.ok){ $('bfErr').textContent = bfFail(r); bfBusy(false, BF.mode==='edit'?'Save changes':'Add bottle'); $('bfQ').hidden=true; $('bfFields').hidden=false; $('bfBtns').hidden=false; return; }
+    $('bfBack').hidden = true; bfBusy(false);
+    toast(r.nochange ? 'Nothing changed.' : okMsg);
+    applyCatalog(r.catalog, r.id);
+  }catch(e){ $('bfErr').textContent = bfFail(null); bfBusy(false, BF.mode==='edit'?'Save changes':'Add bottle'); }
+}
+function ask(title, items, foot){
+  const q = $('bfQ'); q.textContent=''; $('bfFields').hidden = true; $('bfBtns').hidden = true;
+  q.append(el('p',{class:'lbl',text:title}));
+  for (const it of items) q.append(el('div',{class:'q'}, el('p',{text:it.text}), ...it.buttons.map(bt=>el('button',{type:'button',class:'btn '+(bt.cls||'plain'),onclick:bt.fn},bt.label))));
+  q.append(...foot.map(bt=>el('button',{type:'button',class:'btn '+(bt.cls||'plain'),onclick:bt.fn},bt.label)));
+  q.hidden = false; $('bfForm').scrollTop = 0;
+}
+const backToForm = ()=>{ $('bfQ').hidden=true; $('bfFields').hidden=false; $('bfBtns').hidden=false; bfBusy(false, BF.mode==='edit'?'Save changes':'Add bottle'); };
+$('bfForm').addEventListener('submit', async (e)=>{
+  e.preventDefault(); if (BF.busy) return;
+  $('bfErr').textContent='';
+  const v = formVals(), name = $('bf_name').value.trim();
+  if (!BF.pw){ const pw=$('bf_pw').value.trim(); if (!pw){ $('bfErr').textContent='Enter the password.'; return; } BF.pw = pw; }
+  if (!name){ $('bfErr').textContent='Enter your name.'; return; }
+  if (!v.producer || !v.vintage || !v.price || !v.section || !v.taste || !$('bf_color').value){ $('bfErr').textContent='Fill in producer, vintage, chalk price, color, section and style group.'; return; }
+  if (!/^(\d{4}|NV)$/.test(v.vintage)){ $('bfErr').textContent='Vintage should be a year like 2023, or NV.'; return; }
+  store('fe.name', name); if (!S.name) S.name = name;
+  if (BF.mode==='edit'){
+    const diff = {}; for (const k in v) if (String(v[k]) !== String(BF.init[k] ?? '')) diff[k] = v[k];
+    // grape/style and place on an existing bottle change the printed-menu wording only (the booklet's long version stays)
+    if ('grapes' in diff){ diff.mStyle = diff.grapes; delete diff.grapes; }
+    if ('place' in diff){ diff.mPlace = diff.place; delete diff.place; }
+    if (!Object.keys(diff).length && !BF.photo){ $('bfBack').hidden=true; toast('Nothing changed.'); return; }
+    return bfSend({action:'bedit', id:BF.b.id, bottle:diff, photo:BF.photo||undefined}, 'Bottle updated.');
+  }
+  // add: check for duplicates / 86'd / sold-out first
+  bfBusy(true, 'Checking the list…');
+  let r; try{ r = await post({action:'bcheck', pw:BF.pw, bottle:v}); }catch(err){ r = null; }
+  if (!r || !r.ok){ $('bfErr').textContent = bfFail(r); bfBusy(false, 'Add bottle'); return; }
+  const addNew = {label:'No, it’s a new bottle – add it', cls:'solid', fn:()=>bfSend({action:'badd', bottle:v, photo:BF.photo||undefined}, 'Bottle added to the menu.')};
+  const cancel = {label:'Go back', fn:backToForm};
+  if (!r.matches.length) return bfSend({action:'badd', bottle:v, photo:BF.photo||undefined}, 'Bottle added to the menu.');
+  const items = r.matches.map(mt => {
+    const nm = [mt.producer, mt.wine ? '‘'+mt.wine+'’' : '', mt.vintage].filter(Boolean).join(' ') + (mt.price ? ' · $'+String(mt.price).replace(/[^0-9.]/g,'') : '');
+    const gone = mt.out || !['menu','insert','needs-page'].includes(mt.status);
+    const inApp = S.cat.bottles.find(x=>x.id===mt.id);
+    let text, buttons = [];
+    if (gone){
+      const why = mt.out ? ("86'd" + (mt.outBy ? ' by '+mt.outBy : '') + (mt.outAt ? ' · '+fmtWhen(mt.outAt) : '')) : (mt.status==='sold-out' ? 'marked sold out on the sheet' : 'off the menu (status: '+mt.status+')');
+      text = (mt.kind==='same' ? 'This bottle is already on the sheet: ' : 'Close match: ') + nm + ' – ' + why + '.';
+      buttons.push({label:'Bring this one back (use my price & vintage)', cls:'solid', fn:()=>bfSend({action:'bedit', id:mt.id, restore:true, bottle:{price:v.price, vintage:v.vintage}, photo:BF.photo||undefined}, 'Bottle is back on the menu.')});
+    } else {
+      text = (mt.kind==='same' ? (mt.sameVintage ? 'Already on the list: ' : 'Already on the list (other vintage): ') : 'Did you mean: ') + nm + '?';
+      if (inApp) buttons.push({label:'That’s the one – edit it instead', fn:()=>{ $('bfBack').hidden=true; openBottleForm(inApp); }});
+    }
+    return {text, buttons};
+  });
+  const same = r.matches.some(m=>m.kind==='same' && m.sameVintage);
+  ask(same ? 'This looks like a duplicate' : 'Check before adding', items, [Object.assign({}, addNew, same ? {label:'Add it anyway as a separate bottle', cls:'plain'} : {}), cancel]);
+});
 
 function openPrint(){
   $('prErr').textContent=''; $('prRes').hidden=true; $('prRes').textContent='';
@@ -605,7 +794,7 @@ async function loadAll(){
 const T0=Date.now();
 function apply(cat){
   setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp){ sp.classList.add('gone'); setTimeout(()=>sp.remove(),500); } }, Math.max(250, 2200-(Date.now()-T0)));
-  S.cat = { edition:cat.edition||'', glossary:cat.glossary||{}, bottles:(cat.bottles||[]).map(b=>Object.assign({},b,{photo:S.photos.has(b.id), reductive: SHOW_REDUCTIVE && b.reductive})) };
+  S.cat = { edition:cat.edition||'', glossary:cat.glossary||{}, bottles:(cat.bottles||[]).map(b=>Object.assign({},b,{photo:S.photos.has(b.id) || !!b.photoUrl, reductive: SHOW_REDUCTIVE && b.reductive})) };
   S.stock = cat.stock || {};
   render();
 }
@@ -618,7 +807,7 @@ setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp) sp.remove();
 renderWho();
 loadAll();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122132';
+const APP_V = '202610122145';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
