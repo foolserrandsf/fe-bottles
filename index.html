@@ -133,6 +133,9 @@ html{color-scheme:dark}
 body{background:var(--bg);color:var(--ink)}
 header{background:#000;border-bottom:1px solid var(--line);margin-inline:-16px;padding-inline:16px}
 .brandbar{display:flex;align-items:center;gap:14px}
+.printbtn{margin-left:auto;flex:none;padding:7px 10px;font-size:.68rem}
+.pr-res{display:grid;gap:8px}
+.pr-res .warn{color:var(--danger);font-size:.82rem;max-height:160px;overflow:auto;white-space:pre-line}
 .brandbar img{width:52px;height:52px;flex:none;border-radius:50%;box-shadow:0 0 0 1px #f3f3f1}
 .wordmark{font-family:var(--f-display);font-weight:300;font-size:1.55rem;letter-spacing:.32em;line-height:1;text-transform:uppercase}
 .brandbar .meta{font-family:var(--f-display);font-weight:300;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;margin-top:6px;color:var(--muted)}
@@ -206,7 +209,7 @@ section{margin-top:30px}
 
 <div class="wrap">
   <header>
-    <div class="brandbar"><img src="logo-mark.png" alt="Fool's Errand"><div><div class="wordmark">Bottle List</div><div class="meta" id="meta">Loading…</div></div></div>
+    <div class="brandbar"><img src="logo-mark.png" alt="Fool's Errand"><div><div class="wordmark">Bottle List</div><div class="meta" id="meta">Loading…</div></div><button class="btn plain printbtn" id="printOpen" type="button">Print menu</button></div>
     <div class="top">
       <h1>Fool's Errand Bottles</h1>
     </div>
@@ -231,6 +234,16 @@ section{margin-top:30px}
     <label for="who">Your name (shows in the 86 log)<input id="who" maxlength="40" placeholder="e.g. Sam"></label>
     <div class="err" id="pinErr"></div>
     <div class="row"><button type="button" class="btn plain" id="pinCancel">Cancel</button><button type="submit" class="btn solid" id="pinOk">Unlock</button></div>
+  </form>
+</div>
+<div class="modal-back" id="prBack" hidden>
+  <form class="modal" id="prForm" autocomplete="off">
+    <h3>Print menu</h3>
+    <p id="prIntro">Rebuilds the guest bottle list from the October sheet (86'd bottles left off) and makes the folded PDF to print. Takes about 30 seconds.</p>
+    <label for="prPw" id="prPwLab">Password<input id="prPw" type="password" autocapitalize="none" autocorrect="off" maxlength="40" required></label>
+    <div class="err" id="prErr"></div>
+    <div class="pr-res" id="prRes" hidden></div>
+    <div class="row"><button type="button" class="btn plain" id="prCancel">Close</button><button type="submit" class="btn solid" id="prOk">Make PDF</button></div>
   </form>
 </div>
 <div class="toast" id="toast" hidden role="status"><span id="toastMsg"></span><button id="toastUndo" hidden>Undo</button></div>
@@ -454,7 +467,8 @@ function stockRow(b){
   const who = el('div',{class:'who'});
   if (out){
     const t = s.at ? new Date(s.at) : null;
-    const when = t && !isNaN(t) ? t.toLocaleString([], {weekday:'short', hour:'numeric', minute:'2-digit'}) : '';
+    const p2 = n => String(n).padStart(2,'0');
+    const when = t && !isNaN(t) ? t.toLocaleDateString([], {weekday:'short'}) + ' ' + p2(t.getMonth()+1) + '/' + p2(t.getDate()) + '/' + p2(t.getFullYear()%100) + ' · ' + t.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '';
     who.textContent = "86'd" + (s.by ? ' by ' + s.by : '') + (when ? ' · ' + when : '');
   } else who.textContent = 'In stock';
   const row = el('div',{class:'stock'}, who);
@@ -470,6 +484,40 @@ function toast(msg, undo){
   $('toast').hidden = false;
   clearTimeout(toastTimer); toastTimer = setTimeout(()=>{$('toast').hidden=true}, undo?6000:3500);
 }
+
+function openPrint(){
+  $('prErr').textContent=''; $('prRes').hidden=true; $('prRes').textContent='';
+  $('prPwLab').hidden=false; $('prOk').hidden=false; $('prOk').disabled=false; $('prOk').textContent='Make PDF'; $('prPw').value='';
+  $('prBack').hidden=false; setTimeout(()=>$('prPw').focus(),50);
+}
+$('printOpen').addEventListener('click', openPrint);
+$('prCancel').addEventListener('click', ()=>{ $('prBack').hidden=true; });
+$('prForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const pw = $('prPw').value.trim(); if (!pw) return;
+  $('prErr').textContent=''; $('prOk').disabled=true; $('prOk').textContent='Making PDF…';
+  try{
+    const r = await post({action:'printmenu', pw});
+    if (!r.ok){
+      $('prErr').textContent = r.error==='bad_pw' ? 'That password isn\u2019t right.' : r.error==='locked' ? 'Too many wrong tries. Wait 10 minutes and try again.' : r.error==='busy' ? 'Someone else is making a PDF right now. Try again in a minute.' : 'Something went wrong: ' + (r.error||'unknown');
+      $('prOk').disabled=false; $('prOk').textContent='Make PDF'; return;
+    }
+    const bytes = Uint8Array.from(atob(r.pdf), c=>c.charCodeAt(0));
+    const file = new File([bytes], r.name || 'Bottle List.pdf', {type:'application/pdf'});
+    const url = URL.createObjectURL(file);
+    $('prPwLab').hidden=true; $('prOk').hidden=true;
+    const res = $('prRes'); res.textContent='';
+    res.append(el('p',{text:`Ready: ${r.name} (${r.sheets} sheet${r.sheets===1?'':'s'}). Saved in the bottle-list Drive folder too. Print double-sided, flip on short edge, actual size, then fold.`}));
+    if (navigator.canShare && navigator.canShare({files:[file]}))
+      res.append(el('button',{type:'button',class:'btn solid',onclick:()=>navigator.share({files:[file],title:r.name}).catch(()=>{})},'Print or share'));
+    res.append(el('a',{class:'btn back',href:url,target:'_blank',rel:'noopener',download:r.name,style:'text-align:center;text-decoration:none'},'Open PDF'));
+    if (r.warnings && r.warnings.length) res.append(el('div',{class:'warn',text:'Check before printing:\n' + r.warnings.map(w=>'• '+w).join('\n')}));
+    res.hidden=false;
+  }catch(err){
+    $('prErr').textContent='Couldn\u2019t reach the sheet. Check the connection and try again.';
+    $('prOk').disabled=false; $('prOk').textContent='Make PDF';
+  }
+});
 
 function post(body){
   return fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(r=>r.json());
@@ -570,7 +618,7 @@ setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp) sp.remove();
 renderWho();
 loadAll();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122118';
+const APP_V = '202610122132';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
