@@ -303,7 +303,7 @@ section{margin-top:30px}
       <label>Menu section *<select id="bf_section"></select></label>
       <label>Style group *<select id="bf_taste"></select><span class="hint" id="bf_tasteHint"></span></label>
       <label>Taste sub-group <span class="hint">(optional)</span><select id="bf_sub"></select></label>
-      <label class="chk" id="bf_chillRow"><input type="checkbox" id="bf_chilled"> Serve chilled (red served cold, gets **)</label>
+      <label class="chk" id="bf_chillRow"><input type="checkbox" id="bf_chilled"> Chilled red – served cold (gets **)</label>
       <label class="chk"><input type="checkbox" id="bf_skin"> Skin contact (gets **)</label>
       <div class="photo-pick">
         <span class="lbl-like">Label photo <span class="hint">(straight-on photo of the front label)</span></span>
@@ -585,7 +585,7 @@ function syncSelects(){
   const color = $('bf_color').value, g = COLOR_GROUPS()[color] || new Set();
   const cur = $('bf_taste').value; fillSelect($('bf_taste'), [...g].sort(), [...g].includes(cur) ? cur : '', 'Pick one…');
   syncSub();
-  $('bf_chillRow').hidden = color !== 'Red'; if (color !== 'Red') $('bf_chilled').checked = false;
+  if ($('bf_chilled').checked && color && color !== 'Red') $('bf_chilled').checked = false;
 }
 function syncSub(){
   const t = $('bf_taste').value, cur = $('bf_sub').value, subs = SUBS(t);
@@ -594,6 +594,7 @@ function syncSub(){
 }
 $('bf_color').addEventListener('change', syncSelects);
 $('bf_taste').addEventListener('change', syncSub);
+$('bf_chilled').addEventListener('change', ()=>{ if ($('bf_chilled').checked && !$('bf_color').value){ $('bf_color').value='Red'; syncSelects(); $('bf_chilled').checked=true; } });
 async function onPhoto(e){
   const f = e.target.files && e.target.files[0]; BF.photo = null; $('bf_prev').hidden = true; if (!f) return;
   try{
@@ -689,6 +690,7 @@ $('bfForm').addEventListener('submit', async (e)=>{
   const v = formVals();
   if (!BF.pw){ const pw=$('bf_pw').value.trim(); if (!pw){ $('bfErr').textContent='Enter your add / edit code.'; return; } BF.pw = pw; }
   if (!v.producer || !v.vintage || !v.price || !v.section || !v.taste || !$('bf_color').value){ $('bfErr').textContent='Fill in producer, vintage, chalk price, color, section and style group.'; return; }
+  if (v.chilled && $('bf_color').value !== 'Red'){ $('bfErr').textContent='Chilled red is only for reds – set Color to Red, or untick it.'; return; }
   if (!/^(\d{4}|NV)$/.test(v.vintage)){ $('bfErr').textContent='Vintage should be a year like 2023, or NV.'; return; }
   if (BF.mode==='edit'){
     const diff = {}; for (const k in v) if (String(v[k]) !== String(BF.init[k] ?? '')) diff[k] = v[k];
