@@ -329,21 +329,41 @@ function render(){
   if (!S.cat){ return; }
   const p = parseQuery(S.q);
   const all = S.cat.bottles;
-  const shown = all.filter(b =>
+  const passChips = b =>
     (p.color || !S.color || b.color===S.color || (S.color==='Orange' && b.skin)) &&
-    (!S.onlyNew || b.isNew) && (!S.onlyStar || b.chilled || b.skin) && (!S.onlyRed || b.reductive) && (!S.only86 || isOut(b)) && matches(b,p));
+    (!S.onlyNew || b.isNew) && (!S.onlyStar || b.chilled || b.skin) && (!S.onlyRed || b.reductive) && (!S.only86 || isOut(b));
+  const shown = all.filter(b => passChips(b) && matches(b,p));
+  // A search never hides a bottle: matches outside the active filters are listed underneath.
+  const extra = S.q ? all.filter(b => !passChips(b) && matches(b,p)) : [];
+  const onNames = [(!p.color && S.color) || '', S.onlyNew?'New':'', S.onlyStar?'** Chilled / skin':'', S.onlyRed?'Slightly reductive':'', S.only86?"86'd":''].filter(Boolean);
+  const clearBtn = (label) => el('button',{class:'btn back',style:'margin-top:12px;display:block',onclick:()=>{ S.color=null; S.onlyNew=S.onlyStar=S.onlyRed=S.only86=false; render(); }},label||'Clear filters');
+  const extraSection = () => {
+    if (!extra.length) return null;
+    const ranked = extra.map(b=>[score(b,p),b]).sort((x,y)=>y[0]-x[0] || (x[1].price||0)-(y[1].price||0)).map(x=>x[1]);
+    const sec = el('section',{'aria-label':'Outside your filters'}, el('h2',{text:`Also matches, outside the ${onNames.join(', ')} filter`}));
+    sec.append(el('p',{class:'legend',style:'margin:0 0 8px'}, 'These match your search but are hidden by the filter you have on. ', clearBtn('Clear filters and show all')));
+    const lst = el('div',{class:'list'});
+    for (const b of ranked) lst.append(bottleCard(b,false,true));
+    sec.append(lst); return sec;
+  };
   const outN = all.filter(isOut).length;
   $('meta').textContent = `${S.cat.edition} · ${all.filter(b=>b.guestList).length} on the list` + (outN?` · ${outN} 86'd`:'');
   const st = $('status');
   const filtering = S.q || S.color || S.onlyNew || S.onlyStar || S.onlyRed || S.only86;
   st.hidden = !filtering;
-  st.textContent = filtering ? `${shown.length} of ${all.length} bottles` : '';
+  st.textContent = filtering ? `${shown.length} of ${all.length} bottles` + (extra.length ? ` · ${extra.length} more outside your filters` : '') : '';
   list.textContent='';
   if (!shown.length){
-    const on = [(!p.color && S.color) || '', S.onlyNew?'New':'', S.onlyStar?'** Chilled / skin':'', S.onlyRed?'Slightly reductive':'', S.only86?"86'd":''].filter(Boolean);
+    const on = onNames;
+    if (extra.length){
+      list.append(el('div',{class:'empty'}, el('strong',{text:`Nothing under the ${on.join(', ')} filter matches “${S.q}”.`}), 'But these bottles do:'));
+      list.append(extraSection());
+      if (S.open) resolveNames();
+      return;
+    }
     list.append(el('div',{class:'empty'}, el('strong',{text: S.q ? `No bottles match “${S.q}”.` : 'No bottles match these filters.'}),
-      on.length ? `The ${on.join(', ')} filter is also on, which hides everything else. ` : 'Try a grape, a place or a style, like “aligoté”, “Mosel” or “chillable red”. ',
-      on.length ? el('button',{class:'btn back',style:'margin-top:12px;display:block',onclick:()=>{ S.color=null; S.onlyNew=S.onlyStar=S.onlyRed=S.only86=false; render(); }},'Clear filters') : null));
+      (on.length && !S.q) ? `The ${on.join(', ')} filter is on, which hides everything else. ` : 'Try a grape, a place or a style, like “aligoté”, “Mosel” or “chillable red”. ',
+      on.length ? clearBtn() : null));
     return;
   }
   if (p.terms.length){
@@ -352,6 +372,7 @@ function render(){
     const lst = el('div',{class:'list'});
     for (const b of ranked) lst.append(bottleCard(b,false,true));
     sec.append(lst); list.append(sec);
+    const ex = extraSection(); if (ex) list.append(ex);
     if (S.open) resolveNames();
     return;
   }
@@ -370,6 +391,7 @@ function render(){
     }
     sec.append(lst); list.append(sec);
   }
+  const ex = extraSection(); if (ex) list.append(ex);
   if (S.open) resolveNames();
 }
 
@@ -548,7 +570,7 @@ setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp) sp.remove();
 renderWho();
 loadAll();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122116';
+const APP_V = '202610122118';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
