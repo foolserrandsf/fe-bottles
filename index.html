@@ -543,7 +543,7 @@ setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp) sp.remove();
 renderWho();
 loadAll();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610081104';
+const APP_V = '202610122043';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
