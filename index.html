@@ -148,6 +148,7 @@ header{background:#000;border-bottom:1px solid var(--line);margin-inline:-16px;p
 .bf .chk{display:flex;gap:10px;align-items:center;text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:400;color:var(--ink)}
 .bf .chk input{width:20px;height:20px}
 .modal .hint{font-size:.78rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400}
+.modal .missing{border-color:var(--danger)!important;outline:2px solid var(--danger);outline-offset:1px}
 .photo-pick{display:grid;gap:8px}
 .lbl-like{font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .btn.pick{display:grid;place-items:center;text-align:center;cursor:pointer;font-size:.72rem;padding:10px 6px}
@@ -340,6 +341,7 @@ section{margin-top:30px}
         <label>Chalk price $ *<input id="bf_price" inputmode="decimal" maxlength="6" placeholder="64"></label>
       </div>
       <label>Grape(s) / style <span class="hint">(the bold italic part on the menu, e.g. Cabernet Franc, Blanc de Noirs)</span><input id="bf_grapes" maxlength="80" placeholder="e.g. Cabernet Franc"></label>
+      <label id="bf_dosRow" hidden>Sparkling style <span class="hint">(prints after the grapes on the guest list)</span><select id="bf_dosage"><option value="">— none —</option><option>Brut Nature</option><option>Extra Brut</option><option>Brut</option><option>Extra Dry</option><option>Demi-Sec</option><option>Pét-Nat</option></select></label>
       <label>Place <span class="hint">(the town or region on the label, as on the menu – e.g. Saumur-Champigny, Mosel, Côtes Catalanes. Not the soil – Claude adds the terroir.)</span><input id="bf_place" maxlength="80" placeholder="e.g. Saumur-Champigny"></label>
       <label>Color *<select id="bf_color"></select></label>
       <label>Menu section *<select id="bf_section"></select></label>
@@ -647,6 +649,15 @@ function syncSelects(){
   const cur = $('bf_taste').value; fillSelect($('bf_taste'), [...g].sort(), [...g].includes(cur) ? cur : '', 'Pick one…');
   syncSub();
   if ($('bf_chilled').checked && color && color !== 'Red') $('bf_chilled').checked = false;
+  $('bf_dosRow').hidden = color !== 'Bubbles'; if (color !== 'Bubbles') $('bf_dosage').value = '';
+}
+const DOSAGES = ['Brut Nature','Extra Brut','Brut','Extra Dry','Demi-Sec','Pét-Nat'];
+// split "Macabeu-Xarel-lo Brut Nature" into grapes + sparkling style
+function splitDosage(style){
+  style = String(style||'').trim();
+  for (const d of DOSAGES) if (style.toLowerCase().endsWith(' ' + d.toLowerCase()) || style.toLowerCase() === d.toLowerCase())
+    return { grapes: style.slice(0, style.length - d.length).trim(), dosage: d };
+  return { grapes: style, dosage: '' };
 }
 function syncSub(){
   const t = $('bf_taste').value, cur = $('bf_sub').value, subs = SUBS(t);
@@ -667,11 +678,13 @@ async function onPhoto(e){
     $('bf_prev').src = url; $('bf_prev').hidden = false;
   }catch(err){ $('bfErr').textContent = 'Couldn’t read that photo. Try taking it again.'; }
 }
+$('bfFields').addEventListener('input', e=>e.target.classList && e.target.classList.remove('missing'));
+$('bfFields').addEventListener('change', e=>e.target.classList && e.target.classList.remove('missing'));
 $('bf_photo').addEventListener('change', onPhoto);
 $('bf_photo2').addEventListener('change', onPhoto);
 function formVals(){
   return { producer:$('bf_producer').value.trim(), wine:$('bf_wine').value.trim(), vintage:$('bf_vintage').value.trim().toUpperCase(),
-    price:$('bf_price').value.replace(/[^0-9.]/g,''), grapes:$('bf_grapes').value.trim(), place:$('bf_place').value.trim(),
+    price:$('bf_price').value.replace(/[^0-9.]/g,''), grapes:[splitDosage($('bf_grapes').value).grapes, $('bf_dosage').value].filter(Boolean).join(' '), place:$('bf_place').value.trim(),
     section:$('bf_section').value, taste:$('bf_taste').value, sub:$('bf_sub').value, chilled:$('bf_chilled').checked, skin:$('bf_skin').checked };
 }
 
@@ -777,6 +790,7 @@ function showBottleForm(b){
                   section:b.section||'', taste:b.taste||'', sub:b.sub||'', chilled:!!b.chilled, skin:!!b.skin } : {};
   BF.init = v;
   for (const k of ['producer','wine','vintage','price','grapes','place']) $('bf_'+k).value = v[k] || '';
+  const sd = splitDosage(v.grapes); $('bf_grapes').value = sd.grapes; $('bf_dosage').value = sd.dosage;
   fillSelect($('bf_color'), COLORS, b ? b.color : '', 'Pick one…');
   fillSelect($('bf_section'), SECTIONS, v.section || '', 'Pick one…');
   syncSelects(); $('bf_taste').value = v.taste || ''; syncSub(); $('bf_sub').value = v.sub || '';
@@ -825,7 +839,13 @@ $('bfForm').addEventListener('submit', async (e)=>{
   $('bfErr').textContent='';
   const v = formVals();
   if (!BF.pw){ const pw=$('bf_pw').value.trim(); if (!pw){ $('bfErr').textContent='Enter your add / edit code.'; return; } BF.pw = pw; }
-  if (!v.producer || !v.vintage || !v.price || !v.section || !v.taste || !$('bf_color').value){ $('bfErr').textContent='Fill in producer, vintage, chalk price, color, section and style group.'; return; }
+  document.querySelectorAll('#bfFields .missing').forEach(x=>x.classList.remove('missing'));
+  const need = [['bf_producer','Producer',v.producer],['bf_vintage','Vintage',v.vintage],['bf_price','Chalk price',v.price],['bf_color','Color',$('bf_color').value],['bf_section','Menu section',v.section],['bf_taste','Style group',v.taste]].filter(x=>!x[2]);
+  if (need.length){
+    need.forEach(x=>$(x[0]).classList.add('missing'));
+    $('bfErr').textContent = 'Still needed: ' + need.map(x=>x[1]).join(', ') + ' (outlined in red above).';
+    $(need[0][0]).scrollIntoView({block:'center'}); return;
+  }
   if (v.chilled && $('bf_color').value !== 'Red'){ $('bfErr').textContent='Chilled red is only for reds – set Color to Red, or untick it.'; return; }
   if (!/^(\d{4}|NV)$/.test(v.vintage)){ $('bfErr').textContent='Vintage should be a year like 2023, or NV.'; return; }
   if (BF.mode==='edit'){
@@ -1028,7 +1048,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610122242';
+const APP_V = '202610302038';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
