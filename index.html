@@ -152,6 +152,7 @@ header{background:#000;border-bottom:1px solid var(--line);margin-inline:-16px;p
 .photo-pick{display:grid;gap:8px}
 .lbl-like{font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .btn.pick{display:grid;place-items:center;text-align:center;cursor:pointer;font-size:.72rem;padding:10px 6px}
+.histbtns{display:flex;gap:6px;flex-wrap:wrap}
 .bf .prev{max-width:120px;max-height:160px;object-fit:contain;border:1px solid var(--line)}
 .qbox{display:grid;gap:10px}
 .qbox .q{border:1px solid var(--line);padding:10px;display:grid;gap:8px}
@@ -342,11 +343,13 @@ section{margin-top:30px}
       </div>
       <label>Grape(s) / style <span class="hint">(the bold italic part on the menu, e.g. Cabernet Franc, Blanc de Noirs)</span><input id="bf_grapes" maxlength="80" placeholder="e.g. Cabernet Franc"></label>
       <label id="bf_dosRow" hidden>Sparkling style <span class="hint">(prints after the grapes on the guest list)</span><select id="bf_dosage"><option value="">— none —</option><option>Brut Nature</option><option>Extra Brut</option><option>Brut</option><option>Extra Dry</option><option>Demi-Sec</option><option>Pét-Nat</option></select></label>
+      <label id="bf_rRow" hidden>Riesling style <span class="hint">(prints on the guest list – e.g. Kabinett, Trocken, GG)</span><select id="bf_rstyle"><option value="">— none —</option><option>Trocken</option><option>Feinherb</option><option>Kabinett</option><option>Kabinett Trocken</option><option>Spätlese</option><option>Spätlese Trocken</option><option>Auslese</option><option>GG</option><option>GL</option><option>Erste Lage</option></select></label>
       <label>Place <span class="hint">(the town or region on the label, as on the menu – e.g. Saumur-Champigny, Mosel, Côtes Catalanes. Not the soil – Claude adds the terroir.)</span><input id="bf_place" maxlength="80" placeholder="e.g. Saumur-Champigny"></label>
       <label>Color *<select id="bf_color"></select></label>
       <label>Menu section *<select id="bf_section"></select></label>
-      <label>Style group *<select id="bf_taste"></select><span class="hint" id="bf_tasteHint"></span></label>
+      <label>Style group <span class="hint">(optional – leave it and it's picked for you; Claude double-checks it the next morning)</span><select id="bf_taste"></select><span class="hint" id="bf_tasteHint"></span></label>
       <label>Taste sub-group <span class="hint">(optional)</span><select id="bf_sub"></select></label>
+      <label id="bf_posRow" hidden>Where on the list <span class="hint">(its spot in this section on the printed menu)</span><select id="bf_pos"></select></label>
       <label class="chk" id="bf_chillRow"><input type="checkbox" id="bf_chilled"> Chilled red – served cold (gets **)</label>
       <label class="chk"><input type="checkbox" id="bf_skin"> Skin contact (gets **)</label>
       <div class="photo-pick">
@@ -600,7 +603,8 @@ function detail(b){
   const lines = el('div',{class:'who'},
     b.addedOn ? el('div',{text:'Added by ' + (b.addedBy||'?') + ' · ' + b.addedOn}) : null,
     b.editedOn ? el('div',{text:'Edited by ' + (b.editedBy||'?') + ' · ' + b.editedOn}) : null);
-  hist.append(lines, el('button',{class:'btn plain',type:'button',onclick:()=>openBottleForm(b)},'Edit bottle'));
+  hist.append(lines, el('div',{class:'histbtns'}, canMove() ? el('button',{class:'btn plain',type:'button',onclick:()=>openBottleForm(b, true)},'Move on list') : null,
+    el('button',{class:'btn plain',type:'button',onclick:()=>openBottleForm(b)},'Edit bottle')));
   d.append(hist);
   return d;
 }
@@ -652,6 +656,60 @@ function syncSelects(){
   $('bf_dosRow').hidden = color !== 'Bubbles'; if (color !== 'Bubbles') $('bf_dosage').value = '';
 }
 const DOSAGES = ['Brut Nature','Extra Brut','Brut','Extra Dry','Demi-Sec','Pét-Nat'];
+const RSTYLES = ['Kabinett Trocken','Spätlese Trocken','Erste Lage','Trocken','Feinherb','Kabinett','Spätlese','Auslese','GG','GL'];
+const RSTYLE_DRY = ['Kabinett Trocken','Spätlese Trocken','Erste Lage','Trocken','GG','GL'];
+function splitStyle(style){
+  let t = String(style||'').trim(), low = t.toLowerCase();
+  for (const d of RSTYLES) if (low === d.toLowerCase() || low.endsWith(' ' + d.toLowerCase()))
+    return { grapes: t.slice(0, t.length - d.length).trim(), dosage: '', rstyle: d };
+  const sd = splitDosage(t); return { grapes: sd.grapes, dosage: sd.dosage, rstyle: '' };
+}
+function isRiesling(){ return $('bf_section').value === 'Riesling' || /riesling/i.test($('bf_grapes').value); }
+function autoTaste(color, rstyle){
+  if (color === 'Bubbles') return 'Bubbles';
+  if (color === 'Pink') return 'Pink';
+  if (color === 'Orange') return 'Orange & grippy';
+  if (color === 'White') return rstyle && !RSTYLE_DRY.includes(rstyle) ? 'Off-dry & sweet whites' : 'Crisp & lean whites';
+  if (color === 'Red') return 'Bright & silky reds';
+  return '';
+}
+function syncRiesling(){
+  const show = isRiesling(); $('bf_rRow').hidden = !show; if (!show) $('bf_rstyle').value = '';
+  const r = $('bf_rstyle').value;
+  if (r && !$('bf_taste').value && $('bf_color').value === 'White'){ $('bf_taste').value = autoTaste('White', r); syncSub(); }
+}
+/* list position: bottles in the same section and the same white/red half, in printed order */
+const REDSET = new Set(['Light & chillable reds','Bright & silky reds','Savory & spicy reds','Firm & structured reds','Dark & structured reds']);
+function posPeers(section, taste, skipId){
+  const red = REDSET.has(taste);
+  return (S.cat ? S.cat.bottles : []).filter(x => x.section === section && REDSET.has(x.taste) === red && x.id !== skipId && x.order < 9999)
+    .sort((a,b) => a.order - b.order);
+}
+function canMove(){ return !!(S.cat && (S.cat.features||[]).includes('order')); }
+function syncPos(){
+  const row = $('bf_posRow'), sel = $('bf_pos');
+  const color = $('bf_color').value, sec = $('bf_section').value;
+  if (!canMove() || !sec || !color){ row.hidden = true; sel.textContent=''; return; }
+  const taste = $('bf_taste').value || autoTaste(color, $('bf_rstyle').value);
+  const peers = posPeers(sec, taste, BF.b && BF.b.id), cur = sel.value;
+  sel.textContent = '';
+  sel.append(el('option',{value:''}, BF.mode==='edit' ? 'Keep where it is' : 'At the end (default)'));
+  sel.append(el('option',{value:'top'}, 'At the top of the ' + (REDSET.has(taste)?'reds':'whites') + ' in ' + sec));
+  for (const x of peers){ const m = menuParts(x); sel.append(el('option',{value:'after:'+x.id}, 'After ' + m.prod + (m.cuv ? ' ‘'+m.cuv+'’' : '') + (m.style ? ' · ' + m.style : '') + ' ' + (x.vintage||'') + (x.price!=null ? ' · $'+x.price : ''))); }
+  sel.value = [...sel.options].some(o=>o.value===cur) ? cur : '';
+  row.hidden = false;
+}
+function posOrder(){
+  const v = $('bf_pos').value; if (!v) return null;
+  const color = $('bf_color').value, taste = $('bf_taste').value || autoTaste(color, $('bf_rstyle').value);
+  const peers = posPeers($('bf_section').value, taste, BF.b && BF.b.id);
+  if (!peers.length) return null;
+  let o;
+  if (v === 'top') o = peers[0].order - 0.5;
+  else { const i = peers.findIndex(x => 'after:'+x.id === v); if (i < 0) return null;
+    o = i + 1 < peers.length ? (peers[i].order + peers[i+1].order) / 2 : peers[i].order + 0.5; }
+  return Math.round(o * 10000) / 10000;
+}
 // split "Macabeu-Xarel-lo Brut Nature" into grapes + sparkling style
 function splitDosage(style){
   style = String(style||'').trim();
@@ -664,8 +722,11 @@ function syncSub(){
   fillSelect($('bf_sub'), subs, subs.includes(cur) ? cur : '', '—');
   $('bf_tasteHint').textContent = /chillable/i.test(t) ? 'Gets the blue “Chillable (not served chilled)” tag unless Serve chilled is ticked.' : '';
 }
-$('bf_color').addEventListener('change', syncSelects);
-$('bf_taste').addEventListener('change', syncSub);
+$('bf_color').addEventListener('change', ()=>{ syncSelects(); syncRiesling(); syncPos(); });
+$('bf_taste').addEventListener('change', ()=>{ syncSub(); syncPos(); });
+$('bf_section').addEventListener('change', ()=>{ syncRiesling(); syncPos(); });
+$('bf_grapes').addEventListener('input', syncRiesling);
+$('bf_rstyle').addEventListener('change', ()=>{ syncRiesling(); syncPos(); });
 $('bf_chilled').addEventListener('change', ()=>{ if ($('bf_chilled').checked && !$('bf_color').value){ $('bf_color').value='Red'; syncSelects(); $('bf_chilled').checked=true; } });
 async function onPhoto(e){
   const f = e.target.files && e.target.files[0]; BF.photo = null; $('bf_prev').hidden = true; if (!f) return;
@@ -682,10 +743,16 @@ $('bfFields').addEventListener('input', e=>e.target.classList && e.target.classL
 $('bfFields').addEventListener('change', e=>e.target.classList && e.target.classList.remove('missing'));
 $('bf_photo').addEventListener('change', onPhoto);
 $('bf_photo2').addEventListener('change', onPhoto);
+function menuStyle(){
+  const base = splitStyle($('bf_grapes').value).grapes, r = $('bf_rstyle').value, d = $('bf_dosage').value;
+  // in the Riesling section the menu shows just the style (e.g. "Kabinett"), as on the printed list
+  if (r && $('bf_section').value === 'Riesling' && (!base || /^riesling$/i.test(base))) return r;
+  return [base, r || d].filter(Boolean).join(' ');
+}
 function formVals(){
   return { producer:$('bf_producer').value.trim(), wine:$('bf_wine').value.trim(), vintage:$('bf_vintage').value.trim().toUpperCase(),
-    price:$('bf_price').value.replace(/[^0-9.]/g,''), grapes:[splitDosage($('bf_grapes').value).grapes, $('bf_dosage').value].filter(Boolean).join(' '), place:$('bf_place').value.trim(),
-    section:$('bf_section').value, taste:$('bf_taste').value, sub:$('bf_sub').value, chilled:$('bf_chilled').checked, skin:$('bf_skin').checked };
+    price:$('bf_price').value.replace(/[^0-9.]/g,''), grapes:menuStyle(), place:$('bf_place').value.trim(),
+    section:$('bf_section').value, taste:$('bf_taste').value || autoTaste($('bf_color').value, $('bf_rstyle').value), sub:$('bf_sub').value, chilled:$('bf_chilled').checked, skin:$('bf_skin').checked };
 }
 
 /* ---------- loading graphic (same as the BTG & Taps app) ---------- */
@@ -763,10 +830,10 @@ $('undoForm').addEventListener('submit', async ev=>{
 });
 
 let codeNext = null;
-function openBottleForm(b){
-  if (BF.pw) return showBottleForm(b);
-  codeNext = () => showBottleForm(b);
-  $('codeTitle').textContent = b ? 'Edit bottle – your code' : 'Add a bottle – your code';
+function openBottleForm(b, moveOnly){
+  if (BF.pw) return showBottleForm(b, moveOnly);
+  codeNext = () => showBottleForm(b, moveOnly);
+  $('codeTitle').textContent = moveOnly ? 'Move on list – your code' : b ? 'Edit bottle – your code' : 'Add a bottle – your code';
   $('codeErr').textContent=''; $('codeIn').value=''; $('codeOk').disabled=false;
   $('codeBack').hidden=false; setTimeout(()=>$('codeIn').focus(),50);
 }
@@ -781,25 +848,28 @@ $('codeForm').addEventListener('submit', async e=>{
   }catch(err){ busy(false); $('codeErr').textContent='Couldn’t reach the bottle list. Check the connection.'; }
   $('codeOk').disabled=false;
 });
-function showBottleForm(b){
+function showBottleForm(b, moveOnly){
   BF.mode = b ? 'edit' : 'add'; BF.b = b || null; BF.photo = null;
-  $('bfTitle').textContent = b ? 'Edit bottle' : 'Add a bottle';
+  $('bfTitle').textContent = moveOnly ? 'Move on list' : b ? 'Edit bottle' : 'Add a bottle';
   $('bfIntro').textContent = (BF.who ? (b ? 'Editing as ' : 'Adding as ') + BF.who + '. ' : '') + (b ? 'Changes save to the bottle sheet and show in the app right away. The printed menu wording changes too.' : 'Goes straight onto the menu in its section. Claude researches the booklet page (story, tasting, terroir) afterwards.');
   const m = b ? menuParts(b) : {};
   const v = b ? { producer:m.prod||'', wine:m.cuv||'', vintage:b.vintage||'', price:b.price!=null?String(b.price):'', grapes:m.style||'', place:m.place||'',
                   section:b.section||'', taste:b.taste||'', sub:b.sub||'', chilled:!!b.chilled, skin:!!b.skin } : {};
   BF.init = v;
   for (const k of ['producer','wine','vintage','price','grapes','place']) $('bf_'+k).value = v[k] || '';
-  const sd = splitDosage(v.grapes); $('bf_grapes').value = sd.grapes; $('bf_dosage').value = sd.dosage;
+  const sd = splitStyle(v.grapes); $('bf_grapes').value = sd.grapes; $('bf_dosage').value = sd.dosage; $('bf_rstyle').value = sd.rstyle;
+  if (sd.rstyle && !sd.grapes && v.section === 'Riesling') $('bf_grapes').value = 'Riesling';
   fillSelect($('bf_color'), COLORS, b ? b.color : '', 'Pick one…');
   fillSelect($('bf_section'), SECTIONS, v.section || '', 'Pick one…');
   syncSelects(); $('bf_taste').value = v.taste || ''; syncSub(); $('bf_sub').value = v.sub || '';
+  $('bf_dosage').value = sd.dosage; syncRiesling(); $('bf_rstyle').value = sd.rstyle; $('bf_pos').value = ''; syncPos();
   $('bf_chilled').checked = !!v.chilled; $('bf_skin').checked = !!v.skin;
   $('bf_photo').value=''; $('bf_photo2').value=''; $('bf_prev').hidden = true;
   $('bf_pwLab').hidden = !!BF.pw; $('bf_pw').value='';
   $('bfErr').textContent=''; $('bfQ').hidden = true; $('bfFields').hidden = false; $('bfBtns').hidden = false;
   $('bfOk').disabled=false; $('bfOk').textContent = b ? 'Save changes' : 'Add bottle';
   $('bfBack').hidden = false; $('bfForm').scrollTop = 0;
+  if (moveOnly){ syncPos(); setTimeout(()=>{ $('bf_posRow').scrollIntoView({block:'center'}); $('bf_pos').focus(); }, 60); }
 }
 $('addOpen').addEventListener('click', ()=>openBottleForm(null));
 $('bfCancel').addEventListener('click', ()=>{ $('bfBack').hidden = true; });
@@ -840,7 +910,7 @@ $('bfForm').addEventListener('submit', async (e)=>{
   const v = formVals();
   if (!BF.pw){ const pw=$('bf_pw').value.trim(); if (!pw){ $('bfErr').textContent='Enter your add / edit code.'; return; } BF.pw = pw; }
   document.querySelectorAll('#bfFields .missing').forEach(x=>x.classList.remove('missing'));
-  const need = [['bf_producer','Producer',v.producer],['bf_vintage','Vintage',v.vintage],['bf_price','Chalk price',v.price],['bf_color','Color',$('bf_color').value],['bf_section','Menu section',v.section],['bf_taste','Style group',v.taste]].filter(x=>!x[2]);
+  const need = [['bf_producer','Producer',v.producer],['bf_vintage','Vintage',v.vintage],['bf_price','Chalk price',v.price],['bf_color','Color',$('bf_color').value],['bf_section','Menu section',v.section]].filter(x=>!x[2]);
   if (need.length){
     need.forEach(x=>$(x[0]).classList.add('missing'));
     $('bfErr').textContent = 'Still needed: ' + need.map(x=>x[1]).join(', ') + ' (outlined in red above).';
@@ -848,14 +918,17 @@ $('bfForm').addEventListener('submit', async (e)=>{
   }
   if (v.chilled && $('bf_color').value !== 'Red'){ $('bfErr').textContent='Chilled red is only for reds – set Color to Red, or untick it.'; return; }
   if (!/^(\d{4}|NV)$/.test(v.vintage)){ $('bfErr').textContent='Vintage should be a year like 2023, or NV.'; return; }
+  const po = posOrder();
   if (BF.mode==='edit'){
     const diff = {}; for (const k in v) if (String(v[k]) !== String(BF.init[k] ?? '')) diff[k] = v[k];
     // grape/style and place on an existing bottle change the printed-menu wording only (the booklet's long version stays)
     if ('grapes' in diff){ diff.mStyle = diff.grapes; delete diff.grapes; }
     if ('place' in diff){ diff.mPlace = diff.place; delete diff.place; }
+    if (po != null) diff.order = po;
     if (!Object.keys(diff).length && !BF.photo){ $('bfBack').hidden=true; toast('Nothing changed.'); return; }
     return bfSend({action:'bedit', id:BF.b.id, bottle:diff, photo:BF.photo||undefined}, 'Bottle updated.');
   }
+  if (po != null) v.order = po;
   // add: check for duplicates / 86'd / sold-out first
   bfBusy(true, 'Checking the list…'); busy(true, 'Checking for duplicates…');
   let r; try{ r = await post({action:'bcheck', pw:BF.pw, bottle:v}); }catch(err){ r = null; }
@@ -1012,7 +1085,7 @@ function playSplash(){
 function stopSplash(){ const sp=document.getElementById('splash'); if(sp) sp.remove(); }
 function apply(cat){
   setTimeout(()=>{ const sp=document.getElementById('splash'); if(sp){ sp.classList.add('gone'); setTimeout(()=>sp.remove(),500); } }, Math.max(250, 2200-(Date.now()-T0)));
-  S.cat = { edition:cat.edition||'', glossary:cat.glossary||{}, bottles:(cat.bottles||[]).map(b=>Object.assign({},b,{photo:S.photos.has(b.id) || !!b.photoUrl, reductive: SHOW_REDUCTIVE && b.reductive})) };
+  S.cat = { edition:cat.edition||'', features:cat.features||[], glossary:cat.glossary||{}, bottles:(cat.bottles||[]).map(b=>Object.assign({},b,{photo:S.photos.has(b.id) || !!b.photoUrl, reductive: SHOW_REDUCTIVE && b.reductive})) };
   S.stock = cat.stock || {};
   render();
 }
@@ -1048,7 +1121,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610302038';
+const APP_V = '202610302047';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
