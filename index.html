@@ -153,6 +153,19 @@ header{background:#000;border-bottom:1px solid var(--line);margin-inline:-16px;p
 .lbl-like{font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .btn.pick{display:grid;place-items:center;text-align:center;cursor:pointer;font-size:.72rem;padding:10px 6px}
 .histbtns{display:flex;gap:6px;flex-wrap:wrap}
+h2.sech{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.arrbtn{font:inherit;font-family:var(--f-display);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;background:transparent;color:var(--muted);border:1px solid var(--line);padding:5px 9px;cursor:pointer}
+.arrsheet{max-width:480px;max-height:calc(100dvh - 32px);overflow:auto;padding:16px}
+.arrgrp{margin:10px 0 4px;font-family:var(--f-display);letter-spacing:.2em;text-transform:uppercase;font-size:.7rem;color:var(--teal)}
+.arrlist{list-style:none;margin:0;padding:0;display:grid;gap:6px;touch-action:pan-y}
+.arrit{display:flex;align-items:center;gap:10px;padding:10px 10px;border:1px solid var(--line);background:#111;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.arrit .grip{font-size:1.1rem;color:var(--muted);padding:0 2px;cursor:grab;touch-action:none}
+.arrit .t{flex:1;min-width:0;font-size:.9rem;line-height:1.25}
+.arrit .t small{display:block;color:var(--muted);font-size:.75rem}
+.arrit .pr{font-family:var(--f-chalk,inherit);font-size:.95rem}
+.arrit.moved{border-color:var(--teal)}
+.arrit.drag{position:relative;z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.6);border-color:var(--ink);background:#1b1b1b;transform:scale(1.02)}
+.arrit.ph{opacity:.25;border-style:dashed}
 .bf .prev{max-width:120px;max-height:160px;object-fit:contain;border:1px solid var(--line)}
 .qbox{display:grid;gap:10px}
 .qbox .q{border:1px solid var(--line);padding:10px;display:grid;gap:8px}
@@ -320,6 +333,15 @@ section{margin-top:30px}
     <div class="err" id="undoErr"></div>
     <div class="row"><button type="button" class="btn plain" id="undoCancel">Cancel</button><button type="submit" class="btn solid" id="undoOk">Undo</button></div>
   </form>
+</div>
+<div class="modal-back" id="arrBack" hidden>
+  <div class="modal arrsheet" role="dialog" aria-label="Arrange bottles">
+    <h3 id="arrTitle">Arrange</h3>
+    <p>Hold a bottle and drag it to where it should be on the printed list. Whites and reds are arranged separately, like the menu.</p>
+    <div id="arrBody"></div>
+    <div class="err" id="arrErr"></div>
+    <div class="row"><button type="button" class="btn plain" id="arrCancel">Cancel</button><button type="button" class="btn solid" id="arrSave">Save order</button></div>
+  </div>
 </div>
 <div class="modal-back" id="codeBack" hidden>
   <form class="modal" id="codeForm" autocomplete="off">
@@ -534,7 +556,7 @@ function render(){
   const order = SECTION_ORDER.filter(s=>secs[s]).concat(Object.keys(secs).filter(s=>!SECTION_ORDER.includes(s)));
   for (const s of order){
     const items = secs[s].sort((a,b)=> ((a.color==='Red')-(b.color==='Red')) || (a.order-b.order));
-    const sec = el('section',{'aria-label':s}, el('h2',{text:s}));
+    const sec = el('section',{'aria-label':s}, el('h2',{class:'sech'}, el('span',{text:s}), canMove() ? el('button',{class:'arrbtn',type:'button',onclick:()=>openArrange(s)},'Arrange') : null));
     const lst = el('div',{class:'list'});
     let prevRed = null;
     for (const b of items){
@@ -829,6 +851,113 @@ $('undoForm').addEventListener('submit', async ev=>{
   }catch(err){ busy(false); $('undoOk').disabled=false; $('undoErr').textContent='Couldn’t reach the sheet. Check the connection.'; }
 });
 
+
+/* ---------- arrange a section: hold and drag ---------- */
+const ARR = { section:'', groups:[] };
+function openArrange(section){
+  if (!BF.pw){
+    codeNext = () => openArrange(section);
+    $('codeTitle').textContent = 'Arrange – your code';
+    $('codeErr').textContent=''; $('codeIn').value=''; $('codeOk').disabled=false;
+    $('codeBack').hidden=false; setTimeout(()=>$('codeIn').focus(),50); return;
+  }
+  ARR.section = section;
+  const all = (S.cat ? S.cat.bottles : []).filter(b => b.section === section && b.order < 9999);
+  ARR.groups = [['Whites & bubbles', all.filter(b=>!REDSET.has(b.taste))], ['Reds', all.filter(b=>REDSET.has(b.taste))]]
+    .filter(g=>g[1].length).map(([name, list]) => ({ name, items: list.sort((a,b)=>a.order-b.order).map(b=>({b, start:b.order})) }));
+  $('arrTitle').textContent = 'Arrange · ' + section; $('arrErr').textContent='';
+  drawArrange(); $('arrBack').hidden = false;
+}
+function drawArrange(){
+  const body = $('arrBody'); body.textContent='';
+  ARR.groups.forEach((g, gi) => {
+    if (ARR.groups.length > 1) body.append(el('div',{class:'arrgrp',text:g.name}));
+    const ul = el('ul',{class:'arrlist','data-g':gi});
+    g.items.forEach((it, i) => {
+      const m = menuParts(it.b);
+      const li = el('li',{class:'arrit'+(it.moved?' moved':''),'data-i':i},
+        el('span',{class:'grip','aria-hidden':'true'},'≡'),
+        el('div',{class:'t'}, m.prod + (m.cuv ? ' ‘'+m.cuv+'’' : ''), el('small',{text:[m.style, m.place, it.b.vintage].filter(Boolean).join(' · ')})),
+        el('span',{class:'pr',text: it.b.price!=null ? String(it.b.price) : ''}));
+      attachDrag(li, gi);
+      ul.append(li);
+    });
+    body.append(ul);
+  });
+}
+function attachDrag(li, gi){
+  let timer = null, dragging = false, startY = 0, ph = null, ul = null, offset = 0;
+  const start = (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    startY = e.clientY; const onGrip = e.target.closest('.grip');
+    const begin = () => {
+      dragging = true; ul = li.parentNode;
+      const r = li.getBoundingClientRect(); offset = startY - r.top;
+      ph = li.cloneNode(true); ph.classList.add('ph'); ul.insertBefore(ph, li);
+      li.classList.add('drag'); li.style.width = r.width + 'px'; li.style.position = 'fixed'; li.style.left = r.left + 'px'; li.style.top = r.top + 'px';
+      if (navigator.vibrate) try{ navigator.vibrate(15); }catch(_){}
+    };
+    if (onGrip || e.pointerType === 'mouse') begin(); else timer = setTimeout(begin, 280);   // hold to pick up on touch
+    li.setPointerCapture && li.setPointerCapture(e.pointerId);
+  };
+  const move = (e) => {
+    if (!dragging){ if (timer && Math.abs(e.clientY - startY) > 8){ clearTimeout(timer); timer = null; } return; }
+    e.preventDefault();
+    li.style.top = (e.clientY - offset) + 'px';
+    const sibs = [...ul.children].filter(x => x !== li && x !== ph);
+    let before = null;
+    for (const x of sibs){ const r = x.getBoundingClientRect(); if (e.clientY < r.top + r.height/2){ before = x; break; } }
+    ul.insertBefore(ph, before);
+    const sheet = li.closest('.arrsheet'), sr = sheet.getBoundingClientRect();
+    if (e.clientY < sr.top + 40) sheet.scrollTop -= 12; else if (e.clientY > sr.bottom - 40) sheet.scrollTop += 12;
+  };
+  const end = () => {
+    if (timer){ clearTimeout(timer); timer = null; }
+    if (!dragging) return; dragging = false;
+    const order = [...ul.children].filter(x => x !== li);
+    const to = order.indexOf(ph), from = +li.dataset.i;
+    ph.remove(); li.classList.remove('drag'); li.removeAttribute('style');
+    const items = ARR.groups[gi].items, it = items.splice(from, 1)[0];
+    items.splice(to, 0, it);
+    if (from !== to) it.moved = true;
+    drawArrange();
+  };
+  li.addEventListener('pointerdown', start);
+  li.addEventListener('pointermove', move);
+  li.addEventListener('pointerup', end);
+  li.addEventListener('pointercancel', end);
+  li.addEventListener('contextmenu', e => e.preventDefault());
+  li.addEventListener('touchmove', e => { if (dragging) e.preventDefault(); }, {passive:false});
+}
+$('arrCancel').addEventListener('click', ()=>{ $('arrBack').hidden = true; });
+$('arrSave').addEventListener('click', async ()=>{
+  // give each moved bottle a sort number between its new neighbours (only moved bottles change)
+  const changes = [];
+  for (const g of ARR.groups){
+    const items = g.items, cur = items.map(it => it.b.order);
+    items.forEach((it, i) => {
+      if (!it.moved) return;
+      const prev = i > 0 ? cur[i-1] : null, next = i < items.length-1 ? cur[i+1] : null;
+      let o = prev != null && next != null ? (prev + next) / 2 : prev != null ? prev + 0.5 : next != null ? next - 0.5 : it.b.order;
+      o = Math.round(o * 10000) / 10000; cur[i] = o;
+      if (o !== it.start) changes.push({ id: it.b.id, order: o });
+    });
+  }
+  if (!changes.length){ $('arrBack').hidden = true; toast('Nothing moved.'); return; }
+  busy(true, 'Saving the new order…');
+  let last = null;
+  try{
+    for (const c of changes){
+      const r = await post({action:'bedit', pw:BF.pw, id:c.id, bottle:{order:c.order}});
+      if (!r.ok){ busy(false); $('arrErr').textContent = bfFail(r); return; }
+      last = r;
+    }
+  }catch(err){ busy(false); $('arrErr').textContent = 'Couldn’t reach the sheet. Check the connection.'; return; }
+  busy(false); $('arrBack').hidden = true;
+  toast(changes.length === 1 ? 'Moved. The printed list will follow this order.' : changes.length + ' bottles moved.');
+  if (last && last.catalog) applyCatalog(last.catalog);
+});
+
 let codeNext = null;
 function openBottleForm(b, moveOnly){
   if (BF.pw) return showBottleForm(b, moveOnly);
@@ -1121,7 +1250,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202610302047';
+const APP_V = '202610302051';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
