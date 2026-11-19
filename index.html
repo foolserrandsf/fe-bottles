@@ -383,7 +383,7 @@ section{margin-top:30px}
         <label>Funk <span class="hint">(barnyard, vinegary, cidery or mousy – the natty taste)</span><select id="bf_funk"><option value="">— not rated —</option><option value="none">None</option><option value="light">Light</option><option value="medium">Medium</option><option value="heavy">Heavy</option><option value="unknown">Not sure yet</option></select></label>
         <div class="funk-kinds" id="bf_funkKinds">
           <label class="chk"><input type="checkbox" value="barnyard"> Barnyard <span class="hint">(horse, leather, Band-Aid)</span></label>
-          <label class="chk"><input type="checkbox" value="vinegary"> Vinegary <span class="hint">(kombucha, nail polish, sharp)</span></label>
+          <label class="chk"><input type="checkbox" value="vinegary"> Kombucha-y <span class="hint">(sharp, sour, vinegary acid – the heartburn kind)</span></label>
           <label class="chk"><input type="checkbox" value="cidery"> Cidery <span class="hint">(sour apple cider, hazy)</span></label>
           <label class="chk"><input type="checkbox" value="mousy"> Mousy <span class="hint">(stale rice-cracker aftertaste)</span></label>
         </div>
@@ -509,7 +509,7 @@ function hay(b){
     // level words (light / medium / heavy) stay out of the search text so "light white" doesn't find lightly oxidative bottles
     hasOxid(b)?'oxidative oxidation oxidized oxidised '+(b.oxidationNote||''):'',
     hasReduc(b)?'reductive reduction reduced '+(blowsOff(b)?'blows off ':'')+(b.reductionNote||''):'',
-    hasFunk(b)?'funky funk natty natural-wine '+funkTypes(b).join(' ')+' '+(funkTypes(b).includes('barnyard')?'brett ':'')+(funkTypes(b).includes('vinegary')?'volatile acidity ':'')+(b.funkNote||''):'', b.guestList?'':'shelf off-menu'];
+    hasFunk(b)?'funky funk natty natural-wine '+funkTypes(b).join(' ')+' '+funkLabels(b).join(' ')+' '+(funkTypes(b).includes('barnyard')?'brett ':'')+(funkTypes(b).includes('vinegary')?'volatile acidity ':'')+(b.funkNote||''):'', b.guestList?'':'shelf off-menu'];
   return (b._h = norm(parts.join(' | ')));
 }
 // Glossary topics are broad ("Trocken, feinherb", "Sulphur (SO2), zero-zero"), so only the exact word typed is checked there, never its similar words.
@@ -519,6 +519,10 @@ function parseQuery(q){
   s = s.replace(/(under|below|less than|<|max)\s*\$?\s*(\d{2,4})/g,(m,a,n)=>{max=+n;return ' '});
   s = s.replace(/(over|above|more than|>|min)\s*\$?\s*(\d{2,4})/g,(m,a,n)=>{min=+n;return ' '});
   s = s.replace(/\$\s*(\d{2,4})\s*-\s*\$?\s*(\d{2,4})/g,(m,a,b)=>{min=+a;max=+b;return ' '});
+  // "around $100" / "about 100" / "~100": within about 10%
+  s = s.replace(/(around|about|roughly|approx|~)\s*\$?\s*(\d{2,4})/g,(m,a,n)=>{n=+n;min=Math.floor(n*0.9);max=Math.ceil(n*1.1);return ' '});
+  // a price on its own with a $ sign ("$100"): that exact chalk price
+  s = s.replace(/\$\s*(\d{2,4})(?!\s*-)/g,(m,n)=>{min=+n;max=+n;return ' '});
   const terms = [];
   for (const t of s.split(/[\s,]+/).filter(Boolean)){
     if (STOP.has(t)) continue;
@@ -663,6 +667,8 @@ const airLevel = v => { const t = String(v||'').trim().toLowerCase(); return AIR
 const hasOxid = b => AIR_LEVELS.includes(airLevel(b.oxidation));
 const hasReduc = b => AIR_LEVELS.includes(airLevel(b.reduction));
 const hasFunk = b => AIR_LEVELS.includes(airLevel(b.funk));
+const FUNK_LABEL = { vinegary:'kombucha-y' };
+const funkLabels = b => funkTypes(b).map(k => FUNK_LABEL[k] || k);
 const funkTypes = b => String(b.funkType||'').toLowerCase().split(/[,\/·;]+|\band\b/).map(x=>x.trim()).filter(Boolean);
 const blowsOff = b => /blows? off|clears|fades|goes away|opens up/i.test(b.reductionNote||'') && !/(doesn.t|does not|won.t|never)[^.]{0,20}(blow|clear|fade)/i.test(b.reductionNote||'');
 function airText(level, note){
@@ -684,7 +690,7 @@ function bottleCard(b, redGap, showSection){
     b.reductive && el('span',{class:'tag red',text:'Slightly reductive'}),
     hasOxid(b) && el('span',{class:'tag air',text:'Oxidative · '+airLevel(b.oxidation)}),
     hasReduc(b) && el('span',{class:'tag air',text:'Reductive · '+airLevel(b.reduction)+(blowsOff(b)?' (blows off)':'')}),
-    hasFunk(b) && el('span',{class:'tag air',text:'Funky · '+airLevel(b.funk)+(funkTypes(b).length?' ('+funkTypes(b).join(', ')+')':'')}),
+    hasFunk(b) && el('span',{class:'tag air',text:'Funky · '+airLevel(b.funk)+(funkTypes(b).length?' ('+funkLabels(b).join(', ')+')':'')}),
     !b.guestList && el('span',{class:'tag',text:'Shelf only'}));
   const thumb = b.photo
     ? (sheetThumb(b) || el('img',{class:'thumb',src:b.photoUrl ? b.photoUrl.replace(/sz=w\d+/,'sz=w200') : 'thumbs/'+b.id+'.jpg',alt:'',loading:'lazy',decoding:'async',width:'48',height:'64',onerror:localPic('thumbs',b.id)}))
@@ -726,7 +732,7 @@ function detail(b){
     el('dt',{text:'Style'}), el('dd',{text:[b.taste,b.sub,b.reductive?'slightly reductive (flinty, struck-match edge)':''].filter(Boolean).join(' · ')||'—'}),
     airLevel(b.oxidation) && el('dt',{text:'Oxidation'}), airLevel(b.oxidation) && el('dd',{text:airText(b.oxidation,b.oxidationNote)}),
     airLevel(b.reduction) && el('dt',{text:'Reduction'}), airLevel(b.reduction) && el('dd',{text:airText(b.reduction,b.reductionNote)}),
-    airLevel(b.funk) && el('dt',{text:'Funk'}), airLevel(b.funk) && el('dd',{text:airText(b.funk,[funkTypes(b).join(', '),b.funkNote].filter(Boolean).join(' – '))}),
+    airLevel(b.funk) && el('dt',{text:'Funk'}), airLevel(b.funk) && el('dd',{text:airText(b.funk,[funkLabels(b).join(', '),b.funkNote].filter(Boolean).join(' – '))}),
     !b.guestList && el('dt',{text:'Guest list'}), !b.guestList && el('dd',{text:'Not printed on the guest list (shelf only)'})));
   const g = (b.glossary||[]).filter(t => S.cat.glossary[t]);
   if (hasOxid(b) && S.cat.glossary['Oxidative'] && !g.includes('Oxidative')) g.push('Oxidative');
@@ -1381,7 +1387,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202611192350';
+const APP_V = '202611192355';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
