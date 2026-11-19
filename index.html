@@ -465,7 +465,8 @@ const SYN_GROUPS = [
   [['spicy','spice','peppery','pepper'], ['spicy','spice','pepper','clove','cinnamon','licorice','anise','ginger','nutmeg']],
   [['smoky','smoke'], ['smoky','smoke','struck-match','flint','charred','roasted','gunpowder']],
   [['nutty','nuts'], ['nutty','almond','hazelnut','walnut']],
-  [['oxidative','oxidized','oxidised','oxidation','sherry','sherried'], ['oxidative','oxidized','oxidised','oxidation','sherry','under flor','bruised apple']],
+  // Denise: a search for oxidative wines should also bring up the funky / natty ones
+  [['oxidative','oxidized','oxidised','oxidation','sherry','sherried'], ['oxidative','oxidized','oxidised','oxidation','sherry','under flor','bruised apple','funky','@orange','skin contact','skin-contact','orange wine','zero-zero','natural-wine','natural wine','no added sulfur','no added sulphur','pet-nat','cloudy','cider','barnyard','brett','vinegary','volatile acidity','kombucha','mousy']],
   [['bready','yeasty','brioche','biscuit','biscuity','toasty','toast'], ['brioche','bread','yeasty','toast','pastry','biscuit','dough','autolytic']],
   [['honey','honeyed','waxy'], ['honey','beeswax','wax','candied','dried fruit','marzipan','quince paste']],
   [['tropical'], ['tropical','pineapple','mango','passion fruit','guava','lychee','melon','papaya']],
@@ -474,7 +475,8 @@ const SYN_GROUPS = [
   [['berry','berries','cherry','strawberry','raspberry'], ['berries','berry','cherry','strawberry','raspberry','cranberry','currant','red-fruited']],
   [['dark','black','blackberry','plum','cassis'], ['dark','black','blackberry','blackcurrant','cassis','plum','dark-fruited','black cherry','blueberry']],
   [['petrol','petrolly','kerosene'], ['petrol','kerosene','diesel']],
-  [['funky','funk','natty','wild','weird','cloudy'], ['funky','zero-zero','natural-wine','no added sulfur','no added sulphur','cloudy','volatile','cider','pet-nat','skin contact']],
+  // Denise's "funky" / "natty": the barnyard-y, high-acid taste of orange wines and natural whites
+  [['funky','funk','natty','natural','nat','wild','weird','cloudy','orange-wine'], ['funky','@orange','skin contact','skin-contact','orange wine','zero-zero','natural-wine','natural wine','no added sulfur','no added sulphur','pet-nat','cloudy','cider','barnyard','brett','vinegary','volatile acidity','kombucha','mousy']],
   [['barnyard','brett','bretty','horsey','leathery'], ['barnyard','brett','horse','leather','band-aid','farmyard']],
   [['vinegary','volatile','kombucha'], ['vinegary','volatile acidity','kombucha','nail-polish']],
   [['mousy','mousey'], ['mousy','mousiness']],
@@ -532,6 +534,7 @@ function matches(b,p){
   const h = hay(b);
   return p.terms.every(alts => alts.some(a => {
     if (a==='bubbles') return b.color==='Bubbles';
+    if (a==='@orange') return b.color==='Orange' || !!b.skin;
     if (a==='pink') return b.color==='Pink' || h.includes('rose');
     return wordRe(a).test(h) || (a===alts[0] && wordRe(a).test(glossHay(b)));
   }));
@@ -1378,7 +1381,7 @@ else {
 }
 renderWho();
 // keep home-screen copies up to date: if a newer version is published, load it
-const APP_V = '202611192335';
+const APP_V = '202611192350';
 async function checkVersion(){
   try{
     const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
