@@ -422,24 +422,70 @@ const $ = id => document.getElementById(id);
 
 const norm = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 const STOP = new Set('a an the with and for something some wine wines bottle bottles like that is of to on in by me show find any'.split(' '));
-const SYN = {
-  salty:['salt','saline','iodine','briny','oyster','sea spray'], saline:['salt','saline','iodine','briny'], briny:['saline','salt','briny'],
-  mineral:['mineral','chalk','slate','stony','flint','saline'], minerally:['mineral','chalk','slate','stony','flint'],
-  reductive:['reductive','flint','flinty','struck-match'], flinty:['flint','flinty','reductive','struck-match'],
-  funky:['zero-zero','unfiltered','skin','natural','cider','wild'], natural:['zero-zero','sulphur','unfiltered','wild yeast','natural'],
-  dry:['dry','trocken','brut','bone-dry','steely'], sweet:['sweet','off-dry','feinherb','spatlese','kabinett'],
-  oaky:['oak','barrel','tonneau','foudre'], light:['light','zippy','crunchy','chillable','delicate'], big:['structured','firm','deep','grippy','dark'],
-  fizzy:['bubbles'], fizz:['bubbles'], sparkling:['bubbles'], bubbly:['bubbles'], champagne:['champagne'], rose:['pink'], rosé:['pink']
-};
+// Search words: typing any word on the left also finds bottles whose card uses any word on the right.
+// Words match at the start of a word, so "lemon" also finds "lemony" and "chalk" finds "chalky".
+const SYN_GROUPS = [
+  [['salty','salt','saline','briny','brine','salinity'], ['salt','saline','salinity','iodine','briny','brine','oyster','sea spray','sea breeze','seashell','maritime']],
+  [['mineral','minerally','minerality','stony'], ['mineral','minerality','chalk','slate','stony','flint','saline','crystalline','wet stone','graphite']],
+  [['chalky'], ['chalk','chalky','crayeux','limestone']],
+  [['crisp','zippy','zesty','acidic','acid','tart','fresh','lean','racy','brisk','tense','refreshing','steely'], ['crisp','zippy','zesty','racy','brisk','lean','taut','tense','tension','acidity','mouthwatering','steely','vibrant','lively','refreshing','sharp','fresh']],
+  [['bright','lively','vibrant'], ['bright','lively','vibrant','lifted','energetic','energy','zippy','crunchy']],
+  [['rich','round','textured','creamy','full','fat','plush','generous','broad','weighty','buttery'], ['rich','richness','round','rounder','textured','texture','full-bodied','fuller','generous','broad','creamy','plush','dense','concentrated','powerful','honeyed','beeswax','buttery','butter']],
+  [['light','delicate','airy','easy'], ['light','zippy','crunchy','chillable','delicate','pale','airy','fine-boned','easy','gentle','lifted','juicy']],
+  [['big','bold','powerful','heavy','structured','firm','serious'], ['structured','firm','deep','grippy','dark','powerful','dense','concentrated','tannic','tannin','backbone','serious','full-bodied','bold']],
+  [['tannic','grippy','tannins','tannin','grip'], ['tannin','tannic','grip','grippy','firm','structured','backbone']],
+  [['smooth','silky','soft','supple','velvety','velvet'], ['silky','smooth','soft','supple','velvet','plush','fine tannins','gentle','round']],
+  [['elegant','finesse','refined','pretty','precise'], ['elegant','finesse','refined','delicate','pretty','fine-boned','precise','graceful','silky']],
+  [['fruity','fruit','fruit-forward'], ['fruity','fruit','juicy','ripe','berries','cherry','strawberry','raspberry','plum','peach','apricot','pear','apple','citrus','red-fruited','dark-fruited']],
+  [['juicy','crushable','gulpable','glou-glou','chuggable','quaffable','easy-drinking'], ['juicy','crushable','gulpable','glou-glou','crunchy','chillable','easy','ripe','mouthwatering']],
+  [['citrus','citrusy','lemon','lemony','lime','grapefruit','orange-peel'], ['citrus','lemon','lime','grapefruit','orange zest','zest','yuzu','mandarin','orange peel','bergamot']],
+  [['floral','flowery','flowers','perfumed','perfume','aromatic','pretty'], ['floral','flower','blossom','violet','rose petal','perfume','aromatic','lavender','elderflower','acacia','honeysuckle','jasmine','orange blossom']],
+  [['earthy','earth','rustic'], ['earthy','earth','forest floor','mushroom','truffle','leather','underbrush','autumn leaves','tobacco','savory','rustic']],
+  [['savory','savoury','umami','meaty'], ['savory','savoury','umami','herbs','herbal','olive','meaty','leather','earthy','soy','bacon','iron']],
+  [['herbal','herby','herbs','green','grassy'], ['herbal','herb','garrigue','thyme','rosemary','sage','mint','fennel','green','grassy','tea','bay leaf']],
+  [['spicy','spice','peppery','pepper'], ['spicy','spice','pepper','clove','cinnamon','licorice','anise','ginger','nutmeg']],
+  [['smoky','smoke'], ['smoky','smoke','struck-match','flint','charred','roasted','gunpowder']],
+  [['nutty','nuts'], ['nutty','almond','hazelnut','walnut']],
+  [['oxidative','oxidized','oxidised','oxidation','sherry','sherried'], ['oxidative','oxidized','oxidised','oxidation','sherry','under flor','bruised apple']],
+  [['bready','yeasty','brioche','biscuit','biscuity','toasty','toast'], ['brioche','bread','yeasty','toast','pastry','biscuit','dough','autolytic']],
+  [['honey','honeyed','waxy'], ['honey','beeswax','wax','candied','dried fruit','marzipan','quince paste']],
+  [['tropical'], ['tropical','pineapple','mango','passion fruit','guava','lychee','melon','papaya']],
+  [['peach','peachy','apricot','stone-fruit'], ['peach','apricot','nectarine','stone fruit','yellow plum']],
+  [['apple','pear','orchard','quince'], ['apple','pear','quince','orchard']],
+  [['berry','berries','cherry','strawberry','raspberry'], ['berries','berry','cherry','strawberry','raspberry','cranberry','currant','red-fruited']],
+  [['dark','black','blackberry','plum','cassis'], ['dark','black','blackberry','blackcurrant','cassis','plum','dark-fruited','black cherry','blueberry']],
+  [['petrol','petrolly','kerosene'], ['petrol','kerosene','diesel']],
+  [['funky','funk','wild','weird','cloudy'], ['funky','zero-zero','natural-wine','no added sulfur','no added sulphur','cloudy','volatile','cider','pet-nat','skin contact']],
+  [['natural','nat','zero-zero','unfiltered'], ['natural','natural-wine','zero-zero','no added sulfur','no added sulphur','unfiltered','unfined','minimal intervention']],
+  [['organic','organically'], ['organic','biodynamic']],
+  [['biodynamic','biodynamically','biodynamie'], ['biodynamic','biodynamie']],
+  [['dry','bone-dry'], ['dry','trocken','brut','bone-dry','extra-brut','brut nature','steely']],
+  [['sweet','sweetness','dessert'], ['sweet','off-dry','feinherb','spatlese','auslese','residual sugar','kabinett','demi-sec','moelleux']],
+  [['off-dry','offdry','semi-dry','halbtrocken'], ['off-dry','feinherb','halbtrocken','kabinett','spatlese','demi-sec']],
+  [['oaky','oak','oaked','barrel','woody','wood'], ['oak','barrel','barrique','tonneau','foudre','fuder','cask','wood']],
+  [['unoaked','steel','stainless','concrete','amphora'], ['steel','stainless','concrete','tank','amphora','unoaked']],
+  [['reductive','flinty','flint','matchstick','struck-match'], ['reductive','flint','struck-match','matchstick','gunflint']],
+  [['chillable','chilled','chill','cold','cool'], ['chillable','chilled','chill','cold']],
+  [['skin','skin-contact','orange-wine','amber','macerated'], ['skin','maceration','macerated','orange','amber']],
+  [['volcanic','basalt','lava'], ['volcanic','basalt','lava','tuff']],
+  [['mature','aged','old','evolved','tertiary'], ['mature','evolved','tertiary','library','late-release','bottle age']],
+  [['fizzy','fizz','sparkling','bubbly','bubbles','pet-nat','petnat','petillant'], ['bubbles']],
+  [['champagne'], ['champagne']],
+  [['rose','rosé'], ['pink']]
+];
+const SYN = {};
+for (const [keys, alts] of SYN_GROUPS) for (const k of keys) SYN[k] = Array.from(new Set((SYN[k] || []).concat(alts)));
 const COLOR_WORDS = { red:'Red', reds:'Red', white:'White', whites:'White', orange:'Orange', pink:'Pink', rose:'Pink', bubbles:'Bubbles', sparkling:'Bubbles', fizzy:'Bubbles', fizz:'Bubbles', bubbly:'Bubbles' };
 
 function hay(b){
   if (b._h) return b._h;
   const parts = [b.producer,b.wine,b.grapes,b.place,b.section,b.taste,b.sub,b.vintage,b.color,b.menu&&b.menu.style,b.menu&&b.menu.place,
-    b.remember,(b.tasting||[]).join(' '),b.terroir,(b.producerNotes||[]).join(' '),(b.glossary||[]).join(' '),
+    b.remember,(b.tasting||[]).join(' '),b.terroir,(b.producerNotes||[]).join(' '),
     b.chilled?'chilled chillable cold':'', isChillable(b)?'chillable can be chilled':'', b.skin?'skin contact orange skin-contact':'', b.isNew?'new':'', b.reductive?'reductive slightly reductive flinty flint struck-match struck match':'', b.guestList?'':'shelf off-menu'];
   return (b._h = norm(parts.join(' | ')));
 }
+// Glossary topics are broad ("Trocken, feinherb", "Sulphur (SO2), zero-zero"), so only the exact word typed is checked there, never its similar words.
+function glossHay(b){ return b._g != null ? b._g : (b._g = norm((b.glossary||[]).join(' | '))); }
 function parseQuery(q){
   let s = norm(q), min=null, max=null, color=null;
   s = s.replace(/(under|below|less than|<|max)\s*\$?\s*(\d{2,4})/g,(m,a,n)=>{max=+n;return ' '});
@@ -461,7 +507,7 @@ function matches(b,p){
   return p.terms.every(alts => alts.some(a => {
     if (a==='bubbles') return b.color==='Bubbles';
     if (a==='pink') return b.color==='Pink' || h.includes('rose');
-    return wordRe(a).test(h);
+    return wordRe(a).test(h) || (a===alts[0] && wordRe(a).test(glossHay(b)));
   }));
 }
 function score(b,p){
@@ -473,7 +519,12 @@ function score(b,p){
   return n;
 }
 const _re = {};
-function wordRe(a){ return _re[a] || (_re[a] = new RegExp('(^|[^a-z0-9])' + a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))); }
+function wordRe(a){
+  if (_re[a]) return _re[a];
+  // "dry" should not pick up "off-dry" or "semi-dry" bottles
+  if (a==='dry') return (_re[a] = /(^|[^a-z0-9])(?<!off-)(?<!semi-)dry/);
+  return (_re[a] = new RegExp('(^|[^a-z0-9])' + a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+}
 const isOut = b => !!(S.stock[b.id] && S.stock[b.id].out);
 
 function el(tag, attrs, ...kids){
